@@ -7,6 +7,10 @@ Uses the GTFS Realtime API provided by Region of Waterloo.
 import requests
 from datetime import datetime
 from google.transit import gtfs_realtime_pb2
+import urllib3
+
+# Disable SSL warnings and allow weak DH keys for compatibility
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration
 API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
@@ -19,8 +23,8 @@ def fetch_bus_arrivals():
     Returns a list of tuples (arrival_time, route_id, trip_id).
     """
     try:
-        # Download the protobuf file
-        response = requests.get(API_URL, timeout=10)
+        # Download the protobuf file with SSL verification disabled
+        response = requests.get(API_URL, timeout=10, verify=False)
         response.raise_for_status()
 
         # Parse the protobuf message
