@@ -8,13 +8,27 @@ import requests
 from datetime import datetime
 from google.transit import gtfs_realtime_pb2
 import urllib3
+import ssl
+from requests.adapters import HTTPAdapter
+from urllib3.util.ssl_ import create_urllib3_context
 
-# Disable SSL warnings and allow weak DH keys for compatibility
+# Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration
 API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
 STOP_ID = "2783"
+
+
+class DH_KeyAdapter(HTTPAdapter):
+    """Custom adapter to allow weak DH keys for older servers"""
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = create_urllib3_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.set_ciphers('DEFAULT@SECLEVEL=1')
+        kwargs['ssl_context'] = ctx
+        return super().init_poolmanager(*args, **kwargs)
 
 
 def fetch_bus_arrivals():
@@ -23,8 +37,12 @@ def fetch_bus_arrivals():
     Returns a list of tuples (arrival_time, route_id, trip_id).
     """
     try:
-        # Download the protobuf file with SSL verification disabled
-        response = requests.get(API_URL, timeout=10, verify=False)
+        # Create session with custom SSL adapter
+        session = requests.Session()
+        session.mount("https://", DH_KeyAdapter())
+        
+        # Download the protobuf file
+        response = session.get(API_URL, timeout=10)
         response.raise_for_status()
 
         # Parse the protobuf message
