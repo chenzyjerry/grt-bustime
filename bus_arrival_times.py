@@ -6,7 +6,7 @@ Uses the GTFS Realtime API provided by Region of Waterloo.
 
 import requests
 from datetime import datetime
-from google.transit_realtime import gtfs_realtime_pb2
+from google.transit import gtfs_realtime_pb2
 
 # Configuration
 API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
