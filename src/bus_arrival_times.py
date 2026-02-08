@@ -14,13 +14,15 @@ from urllib3.util.ssl_ import create_urllib3_context
 import time
 import sys
 import os
+from zoneinfo import ZoneInfo
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration
-API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"
+API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1"
 STOP_ID = "2783"
+LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
 
 
 class DH_KeyAdapter(HTTPAdapter):
@@ -91,7 +93,8 @@ def fetch_bus_arrivals(debug=False):
         if debug:
             print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
             for arr in arrivals[:3]:  # Show first 3 arrivals
-                print(f"  Arrival time: {arr['time']} (timestamp: {arr['timestamp']})")
+                local_time = arr["time"].astimezone(LOCAL_TZ)
+                print(f"  Arrival time: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
 
         # Sort by arrival time and get the next two
         arrivals.sort(key=lambda x: x["timestamp"])
@@ -101,7 +104,8 @@ def fetch_bus_arrivals(debug=False):
         future_arrivals = [a for a in arrivals if a["time"] > now]
         
         if debug and len(arrivals) > 0:
-            print(f"Current UTC time: {now}")
+            now_local = now.astimezone(LOCAL_TZ)
+            print(f"Current time - UTC: {now}, Local: {now_local}")
             print(f"Future arrivals: {len(future_arrivals)}")
         
         return future_arrivals[:2]
@@ -156,7 +160,8 @@ def main():
             display_text = ""
             for i, arrival in enumerate(future_arrivals[:2], 1):
                 minutes_remaining = (arrival["time"] - now).total_seconds() / 60
-                time_str = arrival["time"].strftime("%I:%M %p")
+                local_time = arrival["time"].astimezone(LOCAL_TZ)
+                time_str = local_time.strftime("%I:%M %p")
                 route_id = arrival["route_id"]
                 
                 if minutes_remaining < 1:
