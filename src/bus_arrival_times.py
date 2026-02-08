@@ -5,7 +5,7 @@ Uses the GTFS Realtime API provided by Region of Waterloo.
 """
 
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from google.transit import gtfs_realtime_pb2
 import urllib3
 import ssl
@@ -90,13 +90,19 @@ def fetch_bus_arrivals(debug=False):
 
         if debug:
             print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
+            for arr in arrivals[:3]:  # Show first 3 arrivals
+                print(f"  Arrival time: {arr['time']} (timestamp: {arr['timestamp']})")
 
         # Sort by arrival time and get the next two
         arrivals.sort(key=lambda x: x["timestamp"])
         
-        # Filter future arrivals only
-        now = datetime.now()
+        # Filter future arrivals only - use UTC-aware comparison
+        now = datetime.now(timezone.utc)
         future_arrivals = [a for a in arrivals if a["time"] > now]
+        
+        if debug and len(arrivals) > 0:
+            print(f"Current UTC time: {now}")
+            print(f"Future arrivals: {len(future_arrivals)}")
         
         return future_arrivals[:2]
 
@@ -138,7 +144,7 @@ def main():
             print(f"\r[{now.strftime('%H:%M:%S')}] Next bus arrivals for stop {STOP_ID}:", end="")
             
             # Check if any arrivals have passed
-            future_arrivals = [a for a in arrivals if a["time"] > now]
+            future_arrivals = [a for a in arrivals if a["time"] > datetime.now(timezone.utc)]
             
             if not future_arrivals:
                 print(" (No upcoming arrivals, refreshing...)")
