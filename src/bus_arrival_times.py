@@ -76,8 +76,8 @@ def fetch_bus_arrivals(debug=False):
                         else:
                             continue
 
-                        # Convert Unix timestamp to datetime
-                        arrival_time = datetime.fromtimestamp(timestamp)
+                        # Convert Unix timestamp to datetime (UTC-aware)
+                        arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                         route_id = trip_update.trip.route_id
                         trip_id = trip_update.trip.trip_id
 
@@ -140,7 +140,7 @@ def main():
                     continue
             
             # Display current arrivals with countdown
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             print(f"\r[{now.strftime('%H:%M:%S')}] Next bus arrivals for stop {STOP_ID}:", end="")
             
             # Check if any arrivals have passed
