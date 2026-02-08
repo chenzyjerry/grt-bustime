@@ -11,6 +11,9 @@ import urllib3
 import ssl
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
+import time
+import sys
+import os
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -97,23 +100,61 @@ def fetch_bus_arrivals():
 
 
 def main():
-    """Main entry point."""
-    print(f"Fetching next bus arrivals for stop {STOP_ID}...")
-    arrivals = fetch_bus_arrivals()
-
-    if not arrivals:
-        print("No upcoming arrivals found.")
-        return
-
-    print(f"\nNext {len(arrivals)} bus arrivals for stop {STOP_ID}:")
-    print("-" * 60)
-
-    for i, arrival in enumerate(arrivals, 1):
-        time_str = arrival["time"].strftime("%I:%M %p")
-        route_id = arrival["route_id"]
-        print(f"{i}. Route {route_id}: {time_str}")
-
-    print("-" * 60)
+    """Main entry point with continuous countdown and periodic refresh."""
+    refresh_interval = 3 * 60  # 3 minutes in seconds
+    last_fetch_time = 0
+    arrivals = []
+    
+    try:
+        while True:
+            current_time = time.time()
+            
+            # Fetch new arrivals every 3 minutes or on first run
+            if current_time - last_fetch_time >= refresh_interval or last_fetch_time == 0:
+                print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Fetching bus arrivals for stop {STOP_ID}...")
+                arrivals = fetch_bus_arrivals()
+                last_fetch_time = current_time
+                
+                if not arrivals:
+                    print("No upcoming arrivals found.")
+                    print("Retrying in 3 minutes...")
+                    time.sleep(30)  # Wait 30 seconds before next attempt if no data
+                    continue
+            
+            # Display current arrivals with countdown
+            now = datetime.now()
+            print(f"\r[{now.strftime('%H:%M:%S')}] Next bus arrivals for stop {STOP_ID}:", end="")
+            
+            # Check if any arrivals have passed
+            future_arrivals = [a for a in arrivals if a["time"] > now]
+            
+            if not future_arrivals:
+                print(" (No upcoming arrivals, refreshing...)")
+                last_fetch_time = 0
+                time.sleep(1)
+                continue
+            
+            # Display the next 2 arrivals with countdown
+            display_text = ""
+            for i, arrival in enumerate(future_arrivals[:2], 1):
+                minutes_remaining = (arrival["time"] - now).total_seconds() / 60
+                time_str = arrival["time"].strftime("%I:%M %p")
+                route_id = arrival["route_id"]
+                
+                if minutes_remaining < 1:
+                    countdown_str = f"{int((arrival['time'] - now).total_seconds())}s"
+                else:
+                    countdown_str = f"{int(minutes_remaining)}m {int((arrival['time'] - now).total_seconds() % 60)}s"
+                
+                display_text += f" | Route {route_id}: {time_str} ({countdown_str})"
+            
+            print(display_text, end="", flush=True)
+            
+            # Update display every second
+            time.sleep(1)
+            
+    except KeyboardInterrupt:
+        print("\n\nBus arrival monitor stopped.")
 
 
 if __name__ == "__main__":
