@@ -34,7 +34,7 @@ class DH_KeyAdapter(HTTPAdapter):
         return super().init_poolmanager(*args, **kwargs)
 
 
-def fetch_bus_arrivals():
+def fetch_bus_arrivals(debug=False):
     """
     Fetch and parse bus arrival times for the specified stop.
     Returns a list of tuples (arrival_time, route_id, trip_id).
@@ -54,6 +54,8 @@ def fetch_bus_arrivals():
 
         # Collect arrival times for our stop
         arrivals = []
+        total_entities = len(feed.entity)
+        matched_stop_count = 0
 
         for entity in feed.entity:
             if entity.HasField("trip_update"):
@@ -61,7 +63,11 @@ def fetch_bus_arrivals():
                 
                 # Check each stop time update
                 for stop_time_update in trip_update.stop_time_update:
+                    if debug:
+                        print(f"  Stop ID in data: '{stop_time_update.stop_id}' (type: {type(stop_time_update.stop_id).__name__})")
+                    
                     if str(stop_time_update.stop_id) == STOP_ID:
+                        matched_stop_count += 1
                         # Get arrival time (prefer arrival over departure)
                         if stop_time_update.HasField("arrival"):
                             timestamp = stop_time_update.arrival.time
@@ -82,6 +88,9 @@ def fetch_bus_arrivals():
                             "timestamp": timestamp
                         })
 
+        if debug:
+            print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
+
         # Sort by arrival time and get the next two
         arrivals.sort(key=lambda x: x["timestamp"])
         
@@ -96,6 +105,8 @@ def fetch_bus_arrivals():
         return []
     except Exception as e:
         print(f"Error parsing feed: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
@@ -104,6 +115,7 @@ def main():
     refresh_interval = 3 * 60  # 3 minutes in seconds
     last_fetch_time = 0
     arrivals = []
+    debug_mode = "--debug" in sys.argv
     
     try:
         while True:
@@ -112,7 +124,7 @@ def main():
             # Fetch new arrivals every 3 minutes or on first run
             if current_time - last_fetch_time >= refresh_interval or last_fetch_time == 0:
                 print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Fetching bus arrivals for stop {STOP_ID}...")
-                arrivals = fetch_bus_arrivals()
+                arrivals = fetch_bus_arrivals(debug=debug_mode)
                 last_fetch_time = current_time
                 
                 if not arrivals:
