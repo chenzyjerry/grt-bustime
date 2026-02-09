@@ -10,7 +10,9 @@ Interested in doing this yourself? Read the instructions and find a parts list i
 
 ## Why?
 
-There are two busses at the nearest bus stop to my apartment which go to the University of Waterloo. I would like to know when they will arrive at my stop so I can leave early enough to catch them. This hardware solution is a fun little project and a satifying way to check the times without having to pull out my phone and look at a transit app.
+There are two busses at the nearest bus stop to my apartment which go to the University of Waterloo. I would like to know when they will arrive at my stop so I can leave early enough to catch them.
+
+This hardware solution is a fun little project and a satifying way to check the times without having to pull out my phone and look at a transit app. It's also a fantastic way for me to try out writing code using an AI Agent (Copilot).
 
 ## Design
 

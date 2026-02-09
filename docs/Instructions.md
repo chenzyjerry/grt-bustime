@@ -2,47 +2,48 @@
 
 So, you want to make your own GRT bus time display. If you do, bonus cool points! The instructions are as follows:
 
-## Parts List
+## Assemble Hardware
 
-### Raspberry Pi
-| Name | Qty | Note |
-| ---- | --- | ---- |
-| Raspberry Pi Zero 2W (no headers) | 1 | You can buy the WH version if you don't want to solder the headers yourself. |
-| 40 pin male header | 1 | To solder on to the Pi. Not needed if you bought the WH version. |
-| MicroSD Card | 1 | I used a 64GB Lexar card, but you could definitely get away with significantly less. |
+## Software Setup
 
-### Wiring HAT
-| Name | Qty | Note |
-| ---- | --- | ---- |
-| 40 pin HAT female header | 1 | This makes your perfboard "Pi HAT" easy to install. |
-| 5x7cm perfboard | 1 | Using a perfboard allows for your wiring to be very permanent and tidy without the fuss of a custom PCB. |
-| 4 pin JST XH2.54 headers and cables | 2 | Headers are soldered to perfboard, cables to the 7-segment display modules. These allow you to replace modules without touching the HAT. |
-| 3 pin JST XH2.54 headers and cables | 1 | Headers are soldered to perfboard, cables to the capacitive touch module. These allow you to replace modules without touching the HAT. |
-| 24AWG wires (various colours) | N/A | For creating perfboard connections. |
+### Install the OS
 
-### Components
+Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to flash an OS on to your SD card. Select the device (Pi Zero 2W), and choose an OS. I used Raspberry Pi OS Lite (64-bit) Release 2025-12-04. Choose a hostname (i.e. pi-bustime) and follow the installation process to select your localisation, username/password, Wi-Fi network, and enable SSH.
 
-| Name | Qty | Note |
-| ---- | --- | ---- |
-| TM1637 4-digit 7-segment display module (white) | 2 | The TM1637 is a convenient little I2C 7-segment display module that will eliminate the headache of having to manually control the 7-segment displays. White will allow the emitted light color to be altered using gel filters. |
-| Orange gel filter sheet | 2 | This will make the display numbers orange just like the dot matrix displays in GRT bus shelters. |
-| TTP223 Capacitive Touch Module | 1 | Capacitive touch module that allows the user to immediately refresh the arrival time data. Capacitive touch sensing allows the moduel to be hidden behind the front panel graphics. |
+### Connect to the Pi
 
-### Case
+Use SSH to connect to your Pi. You can do this many ways, such as directly through your terminal, or using clients like [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/) or my preferred client, [Tabby](https://github.com/Eugeny/tabby). Log in using the username and password you used when installing the OS.
 
-| Name | Qty | Note |
-| ---- | --- | ---- |
+### Download the code
 
-## Instructions
+Update your package list and install Git:
+```
+sudo apt update
+sudo apt install git -y
+```
 
-### Assemble Hardware
+Make a folder where you want the GRT-Bustime code to live and navigate to it:
+```
+mkdir bustime
+cd bustime
+```
 
-### Software Setup
+Run the setup script. This will install all the required libraries:
+```
+bash setup.sh
+```
 
-#### Install the OS
+Activate your virtual environment and run the script!
+```
+source venv/bin/activate
+python bus_arrival_times.py
+```
 
-Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to flash an OS on to your SD card. Select the device (Pi Zero 2W), and choose an OS. I used Raspberry Pi OS Lite (64-bit) Release 2025-12-04. Choose a hostname (i.e. pi-bustime) and select your localisation, username/password, Wi-Fi network, and enable SSH.
+You should now be able to see a live status in your terminal on the next busses arriving at your stop. It will pull updated data every 3 minutes, and count down the arrival time in the meanwhile. Press ```Ctrl-C``` when you want to quit the program.
 
-#### Connect to the Pi
+#### Debug
 
-#### Download the code
+```bus_arrival_times.py``` has a debug mode to troubleshoot issues with data retrieval. This can be accessed by using the ```--debug``` flag:
+```
+python bus_arrival_times.py --debug
+```
