@@ -62,10 +62,12 @@ class DH_KeyAdapter(HTTPAdapter):
 
 class CapacitiveSensorManager:
     """Manages TTP223 capacitive sensor for refresh trigger"""
-    def __init__(self, callback=None):
+    def __init__(self, callback=None, debug=False):
         self.available = GPIO_AVAILABLE
         self.callback = callback
+        self.debug = debug
         self.last_state = 0
+        self.state_change_count = 0
         
         if self.available:
             try:
@@ -84,8 +86,12 @@ class CapacitiveSensorManager:
                 except RuntimeError:
                     pass  # No existing event, that's fine
                 
+                # Read initial state
+                self.last_state = GPIO.input(SENSOR_PIN)
+                
                 # Use polling instead of event detection to avoid conflicts
                 print(f"[INFO] Capacitive sensor initialized on pin {SENSOR_PIN} (polling mode).")
+                print(f"[INFO] Initial sensor state: {self.last_state}")
             except Exception as e:
                 print(f"[ERROR] Failed to initialize capacitive sensor: {e}")
                 import traceback
@@ -99,11 +105,22 @@ class CapacitiveSensorManager:
         
         try:
             current_state = GPIO.input(SENSOR_PIN)
-            # Detect rising edge (0 -> 1)
+            
+            # Log state changes in debug mode
+            if self.debug and current_state != self.last_state:
+                self.state_change_count += 1
+                print(f"[DEBUG] Sensor state change #{self.state_change_count}: {self.last_state} -> {current_state}")
+            
+            # Detect rising edge (0 -> 1) - sensor goes HIGH when touched
             if current_state == 1 and self.last_state == 0:
                 print("\n[INFO] Refresh button pressed!")
                 if self.callback:
                     self.callback()
+            
+            # Also detect falling edge (1 -> 0) in case sensor is active-low
+            elif current_state == 0 and self.last_state == 1 and self.debug:
+                print("[DEBUG] Sensor falling edge detected (active-low test)")
+            
             self.last_state = current_state
         except Exception as e:
             print(f"[ERROR] Error reading capacitive sensor: {e}")
@@ -113,7 +130,9 @@ class CapacitiveSensorManager:
         """Clean up GPIO resources"""
         if self.available:
             try:
-                GPIO.cleanup()
+                # Don't call GPIO.cleanup() here as it conflicts with TM1637
+                # Just let the system clean up when the program exits
+                pass
             except Exception as e:
                 print(f"[ERROR] Error cleaning up GPIO: {e}")
 
@@ -269,8 +288,8 @@ def main():
         """Callback when refresh button is pressed"""
         refresh_flag["triggered"] = True
     
-    # Initialize capacitive sensor
-    sensor_manager = CapacitiveSensorManager(callback=on_refresh_button)
+    # Initialize capacitive sensor with debug mode
+    sensor_manager = CapacitiveSensorManager(callback=on_refresh_button, debug=debug_mode)
     
     try:
         while True:
