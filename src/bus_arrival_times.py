@@ -56,6 +56,7 @@ class TM1637DisplayManager:
         self.display1 = None
         self.display2 = None
         self.available = TM1637_AVAILABLE
+        print(f"[INFO] TM1637_AVAILABLE: {TM1637_AVAILABLE}")
         
         if self.available:
             try:
@@ -82,16 +83,20 @@ class TM1637DisplayManager:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
                 self.display1.show(time_str)
+                print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
             else:
                 self.display1.show("----")  # Display dashes if no bus
+                print(f"[DEBUG] Display 1 showing: ----")
             
             # Display 2: Show second arrival time as HHMM (no colon to avoid character errors)
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
                 self.display2.show(time_str)
+                print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
             else:
                 self.display2.show("----")  # Display dashes if no bus
+                print(f"[DEBUG] Display 2 showing: ----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
 
