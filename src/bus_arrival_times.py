@@ -34,7 +34,7 @@ LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
 DISPLAY1_CLK = 11
 DISPLAY1_DIO = 13
 DISPLAY1_ROUTE = "12"  # Route to display on display 1
-DISPLAY2_CLK = 11
+DISPLAY2_CLK = 12
 DISPLAY2_DIO = 15
 DISPLAY2_ROUTE = "19"  # Route to display on display 2
 
