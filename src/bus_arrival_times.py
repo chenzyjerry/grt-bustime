@@ -81,7 +81,7 @@ class TM1637DisplayManager:
             # Display 1: Show first arrival time as HHMM
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H%M")
+                time_str = local_time.strftime("%H:%M")
                 print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
                 self.display1.show(time_str)
             else:
@@ -91,7 +91,7 @@ class TM1637DisplayManager:
             # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H%M")
+                time_str = local_time.strftime("%H:%M")
                 print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
                 self.display2.show(time_str)
             else:
