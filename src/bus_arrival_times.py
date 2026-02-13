@@ -33,8 +33,10 @@ LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
 # TM1637 Display Configuration
 DISPLAY1_CLK = 11
 DISPLAY1_DIO = 13
+DISPLAY1_ROUTE = "12"  # Route to display on display 1
 DISPLAY2_CLK = 11
 DISPLAY2_DIO = 15
+DISPLAY2_ROUTE = "19"  # Route to display on display 2
 
 
 class DH_KeyAdapter(HTTPAdapter):
@@ -69,27 +71,27 @@ class TM1637DisplayManager:
     
     def show_arrivals(self, arrival1=None, arrival2=None):
         """Display arrival times on the two displays.
-        arrival1, arrival2: arrival dicts with 'time' and 'route_id' keys.
+        arrival1, arrival2: arrival dicts with 'time' and 'route_id' keys, or None if no bus.
         """
         if not self.available:
             return
         
         try:
-            # Display 1: Show first arrival time as HHMM
+            # Display 1: Show first arrival time as HHMM (no colon to avoid character errors)
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H:%M")
+                time_str = local_time.strftime("%H%M")
                 self.display1.show(time_str)
             else:
-                self.display1.show("    ")  # Clear display
+                self.display1.show("----")  # Display dashes if no bus
             
-            # Display 2: Show second arrival time as HHMM
+            # Display 2: Show second arrival time as HHMM (no colon to avoid character errors)
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H:%M")
+                time_str = local_time.strftime("%H%M")
                 self.display2.show(time_str)
             else:
-                self.display2.show("    ")  # Clear display
+                self.display2.show("----")  # Display dashes if no bus
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
 
@@ -219,6 +221,16 @@ def main():
             display_text = ""
             arrival_list = future_arrivals[:2]
             
+            # Find arrivals for specific routes
+            arrival_route12 = None
+            arrival_route19 = None
+            
+            for arrival in future_arrivals:
+                if arrival["route_id"] == DISPLAY1_ROUTE and arrival_route12 is None:
+                    arrival_route12 = arrival
+                if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
+                    arrival_route19 = arrival
+            
             for i, arrival in enumerate(arrival_list, 1):
                 minutes_remaining = (arrival["time"] - now).total_seconds() / 60
                 local_time = arrival["time"].astimezone(LOCAL_TZ)
@@ -232,10 +244,10 @@ def main():
                 
                 display_text += f" | Route {route_id}: {time_str} ({countdown_str})"
             
-            # Update TM1637 displays with arrival times
+            # Update TM1637 displays with arrival times for specific routes
             display_manager.show_arrivals(
-                arrival1=arrival_list[0] if len(arrival_list) > 0 else None,
-                arrival2=arrival_list[1] if len(arrival_list) > 1 else None
+                arrival1=arrival_route12,
+                arrival2=arrival_route19
             )
             
             print(display_text, end="", flush=True)
