@@ -201,6 +201,8 @@ def main():
                 if not arrivals:
                     print("No upcoming arrivals found.")
                     print("Retrying in 3 minutes...")
+                    # Clear displays when no data
+                    display_manager.show_arrivals(arrival1=None, arrival2=None)
                     time.sleep(30)  # Wait 30 seconds before next attempt if no data
                     continue
             
@@ -213,6 +215,8 @@ def main():
             
             if not future_arrivals:
                 print(" (No upcoming arrivals, refreshing...)")
+                # Clear displays when no future arrivals
+                display_manager.show_arrivals(arrival1=None, arrival2=None)
                 last_fetch_time = 0
                 time.sleep(1)
                 continue
