@@ -249,19 +249,24 @@ def fetch_bus_arrivals(debug=False):
                 local_time = arr["time"].astimezone(LOCAL_TZ)
                 print(f"  Arrival time: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
 
-        # Sort by arrival time and get the next two
+        # Sort by arrival time
         arrivals.sort(key=lambda x: x["timestamp"])
         
         # Filter future arrivals only - use UTC-aware comparison
         now = datetime.now(timezone.utc)
         future_arrivals = [a for a in arrivals if a["time"] > now]
         
+        # Filter to only include arrivals for the desired routes
+        desired_routes = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
+        filtered_arrivals = [a for a in future_arrivals if a["route_id"] in desired_routes]
+        
         if debug and len(arrivals) > 0:
             now_local = now.astimezone(LOCAL_TZ)
             print(f"Current time - UTC: {now}, Local: {now_local}")
-            print(f"Future arrivals: {len(future_arrivals)}")
+            print(f"Future arrivals (all routes): {len(future_arrivals)}")
+            print(f"Future arrivals (desired routes {desired_routes}): {len(filtered_arrivals)}")
         
-        return future_arrivals[:2]
+        return filtered_arrivals
 
     except requests.RequestException as e:
         print(f"Error fetching data from API: {e}")
@@ -344,10 +349,6 @@ def main():
                 time.sleep(1)
                 continue
             
-            # Display the next 2 arrivals with countdown
-            display_text = ""
-            arrival_list = future_arrivals[:2]
-            
             # Find arrivals for specific routes
             arrival_route12 = None
             arrival_route19 = None
@@ -357,6 +358,10 @@ def main():
                     arrival_route12 = arrival
                 if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
                     arrival_route19 = arrival
+            
+            # Display the next arrivals with countdown
+            display_text = ""
+            arrival_list = [a for a in [arrival_route12, arrival_route19] if a is not None]
             
             for i, arrival in enumerate(arrival_list, 1):
                 now = datetime.now(timezone.utc)  # Recalculate current time for accurate countdown
