@@ -2,3 +2,4 @@ requests==2.31.0
 gtfs-realtime-bindings==2.0.0
 protobuf>=3.20.0
 urllib3>=1.26
+tm1637==0.1.0

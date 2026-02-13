@@ -15,6 +15,12 @@ import time
 import sys
 import os
 from zoneinfo import ZoneInfo
+try:
+    import tm1637
+    TM1637_AVAILABLE = True
+except ImportError:
+    TM1637_AVAILABLE = False
+    print("Warning: tm1637 library not found. Display functionality disabled.")
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -23,6 +29,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1"
 STOP_ID = "2783"
 LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
+
+# TM1637 Display Configuration
+DISPLAY1_CLK = 11
+DISPLAY1_DIO = 13
+DISPLAY2_CLK = 11
+DISPLAY2_DIO = 15
 
 
 class DH_KeyAdapter(HTTPAdapter):
@@ -34,6 +46,52 @@ class DH_KeyAdapter(HTTPAdapter):
         ctx.set_ciphers('DEFAULT@SECLEVEL=1')
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
+
+
+class TM1637DisplayManager:
+    """Manages two TM1637 4-digit 7-segment displays"""
+    def __init__(self):
+        self.display1 = None
+        self.display2 = None
+        self.available = TM1637_AVAILABLE
+        
+        if self.available:
+            try:
+                self.display1 = tm1637.TM1637(CLK=DISPLAY1_CLK, DIO=DISPLAY1_DIO)
+                self.display2 = tm1637.TM1637(CLK=DISPLAY2_CLK, DIO=DISPLAY2_DIO)
+                self.display1.brightness(7)  # 0-7 brightness levels
+                self.display2.brightness(7)
+                print("[INFO] TM1637 displays initialized on pins (CLK/DIO): ({}/{}), ({}/{}).".format(
+                    DISPLAY1_CLK, DISPLAY1_DIO, DISPLAY2_CLK, DISPLAY2_DIO))
+            except Exception as e:
+                print(f"[ERROR] Failed to initialize displays: {e}")
+                self.available = False
+    
+    def show_arrivals(self, arrival1=None, arrival2=None):
+        """Display arrival times on the two displays.
+        arrival1, arrival2: arrival dicts with 'time' and 'route_id' keys.
+        """
+        if not self.available:
+            return
+        
+        try:
+            # Display 1: Show first arrival time as HHMM
+            if arrival1:
+                local_time = arrival1["time"].astimezone(LOCAL_TZ)
+                time_str = local_time.strftime("%H%M")
+                self.display1.number(int(time_str))
+            else:
+                self.display1.show([0x00, 0x00, 0x00, 0x00])  # Clear display
+            
+            # Display 2: Show second arrival time as HHMM
+            if arrival2:
+                local_time = arrival2["time"].astimezone(LOCAL_TZ)
+                time_str = local_time.strftime("%H%M")
+                self.display2.number(int(time_str))
+            else:
+                self.display2.show([0x00, 0x00, 0x00, 0x00])  # Clear display
+        except Exception as e:
+            print(f"[ERROR] Failed to update displays: {e}")
 
 
 def fetch_bus_arrivals(debug=False):
@@ -126,6 +184,7 @@ def main():
     last_fetch_time = 0
     arrivals = []
     debug_mode = "--debug" in sys.argv
+    display_manager = TM1637DisplayManager()
     
     try:
         while True:
@@ -158,7 +217,9 @@ def main():
             
             # Display the next 2 arrivals with countdown
             display_text = ""
-            for i, arrival in enumerate(future_arrivals[:2], 1):
+            arrival_list = future_arrivals[:2]
+            
+            for i, arrival in enumerate(arrival_list, 1):
                 minutes_remaining = (arrival["time"] - now).total_seconds() / 60
                 local_time = arrival["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%I:%M %p")
@@ -170,6 +231,12 @@ def main():
                     countdown_str = f"{int(minutes_remaining)}m {int((arrival['time'] - now).total_seconds() % 60)}s"
                 
                 display_text += f" | Route {route_id}: {time_str} ({countdown_str})"
+            
+            # Update TM1637 displays with arrival times
+            display_manager.show_arrivals(
+                arrival1=arrival_list[0] if len(arrival_list) > 0 else None,
+                arrival2=arrival_list[1] if len(arrival_list) > 1 else None
+            )
             
             print(display_text, end="", flush=True)
             
