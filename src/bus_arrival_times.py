@@ -82,34 +82,60 @@ class TM1637DisplayManager:
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                # Try multiple methods to display
+                print(f"[DEBUG] Attempting to display on Display 1: {time_str}")
+                # Try multiple method names
                 try:
-                    self.display1.show(time_str)
-                except:
-                    # Alternative: write individual segments or use different method
-                    self.display1.write([int(c) for c in time_str] if time_str.isdigit() else [0, 0, 0, 0])
+                    if hasattr(self.display1, 'print'):
+                        self.display1.print(time_str)
+                        print(f"[DEBUG] Used .print() method")
+                    elif hasattr(self.display1, 'write'):
+                        self.display1.write(time_str)
+                        print(f"[DEBUG] Used .write() method")
+                    elif hasattr(self.display1, 'show'):
+                        self.display1.show(time_str)
+                        print(f"[DEBUG] Used .show() method")
+                    else:
+                        print(f"[DEBUG] Available methods: {[m for m in dir(self.display1) if not m.startswith('_')]}")
+                except Exception as e:
+                    print(f"[DEBUG] Error with string display: {e}")
                 print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
             else:
                 try:
-                    self.display1.show("----")
-                except:
-                    self.display1.write([0x0A, 0x0A, 0x0A, 0x0A])  # Dash segments
+                    if hasattr(self.display1, 'print'):
+                        self.display1.print("----")
+                    elif hasattr(self.display1, 'write'):
+                        self.display1.write("----")
+                    elif hasattr(self.display1, 'show'):
+                        self.display1.show("----")
+                except Exception as e:
+                    print(f"[DEBUG] Error displaying dashes: {e}")
                 print(f"[DEBUG] Display 1 showing: ----")
             
             # Display 2: Show second arrival time as HHMM (no colon to avoid character errors)
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
+                print(f"[DEBUG] Attempting to display on Display 2: {time_str}")
                 try:
-                    self.display2.show(time_str)
-                except:
-                    self.display2.write([int(c) for c in time_str] if time_str.isdigit() else [0, 0, 0, 0])
+                    if hasattr(self.display2, 'print'):
+                        self.display2.print(time_str)
+                    elif hasattr(self.display2, 'write'):
+                        self.display2.write(time_str)
+                    elif hasattr(self.display2, 'show'):
+                        self.display2.show(time_str)
+                except Exception as e:
+                    print(f"[DEBUG] Error with string display on display2: {e}")
                 print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
             else:
                 try:
-                    self.display2.show("----")
-                except:
-                    self.display2.write([0x0A, 0x0A, 0x0A, 0x0A])  # Dash segments
+                    if hasattr(self.display2, 'print'):
+                        self.display2.print("----")
+                    elif hasattr(self.display2, 'write'):
+                        self.display2.write("----")
+                    elif hasattr(self.display2, 'show'):
+                        self.display2.show("----")
+                except Exception as e:
+                    print(f"[DEBUG] Error displaying dashes on display2: {e}")
                 print(f"[DEBUG] Display 2 showing: ----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
