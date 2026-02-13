@@ -317,7 +317,15 @@ def main():
                     print("Retrying in 3 minutes...")
                     # Clear displays when no data
                     display_manager.show_arrivals(arrival1=None, arrival2=None)
-                    time.sleep(30)  # Wait 30 seconds before next attempt if no data
+                    
+                    # Wait 30 seconds before next attempt, but poll sensor frequently
+                    wait_time = 30
+                    while wait_time > 0:
+                        sensor_manager.check_sensor()
+                        if refresh_flag["triggered"]:
+                            break
+                        time.sleep(1)
+                        wait_time -= 1
                     continue
             
             # Display current arrivals with countdown
