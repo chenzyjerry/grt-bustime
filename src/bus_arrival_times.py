@@ -22,6 +22,13 @@ except ImportError:
     TM1637_AVAILABLE = False
     print("Warning: raspberrypi-tm1637 library not found. Display functionality disabled.")
 
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    GPIO_AVAILABLE = False
+    print("Warning: RPi.GPIO library not found. Capacitive sensor functionality disabled.")
+
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -39,6 +46,9 @@ DISPLAY2_ROUTE = "19"  # Route to display on display 2
 DISPLAY2_CLK = 18
 DISPLAY2_DIO = 27
 
+# Capacitive Sensor Configuration
+SENSOR_PIN = 4  # TTP223 sensor on GPIO pin 4
+
 class DH_KeyAdapter(HTTPAdapter):
     """Custom adapter to allow weak DH keys for older servers"""
     def init_poolmanager(self, *args, **kwargs):
@@ -48,6 +58,46 @@ class DH_KeyAdapter(HTTPAdapter):
         ctx.set_ciphers('DEFAULT@SECLEVEL=1')
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
+
+
+class CapacitiveSensorManager:
+    """Manages TTP223 capacitive sensor for refresh trigger"""
+    def __init__(self, callback=None):
+        self.available = GPIO_AVAILABLE
+        self.callback = callback
+        
+        if self.available:
+            try:
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(SENSOR_PIN, GPIO.IN)
+                # Use rising edge detection for when sensor is pressed
+                GPIO.add_event_detect(
+                    SENSOR_PIN,
+                    GPIO.RISING,
+                    callback=self._sensor_pressed,
+                    bouncetime=200
+                )
+                print(f"[INFO] Capacitive sensor initialized on pin {SENSOR_PIN}.")
+            except Exception as e:
+                print(f"[ERROR] Failed to initialize capacitive sensor: {e}")
+                self.available = False
+    
+    def _sensor_pressed(self, channel):
+        """Callback when sensor is pressed"""
+        print("\n[INFO] Refresh button pressed!")
+        if self.callback:
+            self.callback()
+    
+    def cleanup(self):
+        """Clean up GPIO resources"""
+        if self.available:
+            try:
+                GPIO.cleanup()
+            except Exception as e:
+                print(f"[ERROR] Error cleaning up GPIO: {e}")
+
+
+class DH_KeyAdapter(HTTPAdapter):
 
 
 class TM1637DisplayManager:
@@ -81,9 +131,9 @@ class TM1637DisplayManager:
             # Display 1: Show first arrival time as HHMM
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H:%M")
-                print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
-                self.display1.show(time_str)
+                time_obj = local_time.time()
+                print(f"[DEBUG] Display 1 showing: {time_obj} (Route {arrival1['route_id']})")
+                self.display1.time(time_obj, colon=True, leading_zero=False)
             else:
                 print(f"[DEBUG] Display 1 showing: ----")
                 self.display1.show("----")
@@ -91,9 +141,9 @@ class TM1637DisplayManager:
             # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H:%M")
-                print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
-                self.display2.show(time_str)
+                time_obj = local_time.time()
+                print(f"[DEBUG] Display 2 showing: {time_obj} (Route {arrival2['route_id']})")
+                self.display2.time(time_obj, colon=True, leading_zero=False)
             else:
                 print(f"[DEBUG] Display 2 showing: ----")
                 self.display2.show("----")
@@ -195,13 +245,34 @@ def main():
     debug_mode = "--debug" in sys.argv
     display_manager = TM1637DisplayManager()
     
+    # Set up refresh trigger flag
+    refresh_flag = {"triggered": False}
+    
+    def on_refresh_button():
+        """Callback when refresh button is pressed"""
+        refresh_flag["triggered"] = True
+    
+    # Initialize capacitive sensor
+    sensor_manager = CapacitiveSensorManager(callback=on_refresh_button)
+    
     try:
         while True:
             current_time = time.time()
             
-            # Fetch new arrivals every 3 minutes or on first run
-            if current_time - last_fetch_time >= refresh_interval or last_fetch_time == 0:
-                print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Fetching bus arrivals for stop {STOP_ID}...")
+            # Fetch new arrivals every 3 minutes, on first run, or when button is pressed
+            should_refresh = (
+                current_time - last_fetch_time >= refresh_interval or 
+                last_fetch_time == 0 or 
+                refresh_flag["triggered"]
+            )
+            
+            if should_refresh:
+                if refresh_flag["triggered"]:
+                    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Manual refresh triggered by button press.")
+                    refresh_flag["triggered"] = False
+                else:
+                    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Fetching bus arrivals for stop {STOP_ID}...")
+                
                 arrivals = fetch_bus_arrivals(debug=debug_mode)
                 last_fetch_time = current_time
                 
@@ -265,9 +336,11 @@ def main():
             
             # Update display every second
             time.sleep(1)
-            
+    
     except KeyboardInterrupt:
         print("\n\nBus arrival monitor stopped.")
+    finally:
+        sensor_manager.cleanup()
 
 
 if __name__ == "__main__":
