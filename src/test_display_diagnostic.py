@@ -26,10 +26,10 @@ except ImportError:
 # Now test the display
 from tm1637 import TM1637
 
-DISPLAY1_CLK = 11
-DISPLAY1_DIO = 13
-DISPLAY2_CLK = 12
-DISPLAY2_DIO = 15
+DISPLAY1_CLK = 17
+DISPLAY1_DIO = 22
+DISPLAY2_CLK = 18
+DISPLAY2_DIO = 27
 
 print("\n[INFO] Checking power and connections...")
 print(f"[INFO] Display 1: CLK={DISPLAY1_CLK}, DIO={DISPLAY1_DIO}")
