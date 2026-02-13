@@ -359,6 +359,7 @@ def main():
                     arrival_route19 = arrival
             
             for i, arrival in enumerate(arrival_list, 1):
+                now = datetime.now(timezone.utc)  # Recalculate current time for accurate countdown
                 minutes_remaining = (arrival["time"] - now).total_seconds() / 60
                 local_time = arrival["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%I:%M %p")
