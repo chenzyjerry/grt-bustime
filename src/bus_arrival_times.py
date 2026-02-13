@@ -78,18 +78,18 @@ class TM1637DisplayManager:
             # Display 1: Show first arrival time as HHMM
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H%M")
-                self.display1.number(int(time_str))
+                time_str = local_time.strftime("%H:%M")
+                self.display1.show(time_str)
             else:
-                self.display1.show([0x00, 0x00, 0x00, 0x00])  # Clear display
+                self.display1.show("    ")  # Clear display
             
             # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%H%M")
-                self.display2.number(int(time_str))
+                time_str = local_time.strftime("%H:%M")
+                self.display2.show(time_str)
             else:
-                self.display2.show([0x00, 0x00, 0x00, 0x00])  # Clear display
+                self.display2.show("    ")  # Clear display
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
 
