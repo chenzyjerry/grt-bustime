@@ -82,20 +82,34 @@ class TM1637DisplayManager:
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                self.display1.show(time_str)
+                # Try multiple methods to display
+                try:
+                    self.display1.show(time_str)
+                except:
+                    # Alternative: write individual segments or use different method
+                    self.display1.write([int(c) for c in time_str] if time_str.isdigit() else [0, 0, 0, 0])
                 print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
             else:
-                self.display1.show("----")  # Display dashes if no bus
+                try:
+                    self.display1.show("----")
+                except:
+                    self.display1.write([0x0A, 0x0A, 0x0A, 0x0A])  # Dash segments
                 print(f"[DEBUG] Display 1 showing: ----")
             
             # Display 2: Show second arrival time as HHMM (no colon to avoid character errors)
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                self.display2.show(time_str)
+                try:
+                    self.display2.show(time_str)
+                except:
+                    self.display2.write([int(c) for c in time_str] if time_str.isdigit() else [0, 0, 0, 0])
                 print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
             else:
-                self.display2.show("----")  # Display dashes if no bus
+                try:
+                    self.display2.show("----")
+                except:
+                    self.display2.write([0x0A, 0x0A, 0x0A, 0x0A])  # Dash segments
                 print(f"[DEBUG] Display 2 showing: ----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
