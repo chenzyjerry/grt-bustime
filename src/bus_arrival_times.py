@@ -52,6 +52,14 @@ class DH_KeyAdapter(HTTPAdapter):
 
 class TM1637DisplayManager:
     """Manages two TM1637 4-digit 7-segment displays"""
+    
+    # 7-segment display codes for digits 0-9 and characters
+    SEGMENT_CODES = {
+        '0': 0x3f, '1': 0x06, '2': 0x5b, '3': 0x4f, '4': 0x66,
+        '5': 0x6d, '6': 0x7d, '7': 0x07, '8': 0x7f, '9': 0x6f,
+        '-': 0x40, ' ': 0x00
+    }
+    
     def __init__(self):
         self.display1 = None
         self.display2 = None
@@ -70,6 +78,15 @@ class TM1637DisplayManager:
                 print(f"[ERROR] Failed to initialize displays: {e}")
                 self.available = False
     
+    def _convert_to_segments(self, text):
+        """Convert text string to segment codes for display."""
+        # Pad to 4 characters
+        text = str(text).ljust(4)[:4]
+        segments = []
+        for char in text:
+            segments.append(self.SEGMENT_CODES.get(char, 0x00))
+        return segments
+    
     def show_arrivals(self, arrival1=None, arrival2=None):
         """Display arrival times on the two displays.
         arrival1, arrival2: arrival dicts with 'time' and 'route_id' keys, or None if no bus.
@@ -78,67 +95,37 @@ class TM1637DisplayManager:
             return
         
         try:
-            # Display 1: Show first arrival time as HHMM (no colon to avoid character errors)
+            # Display 1: Show first arrival time as HHMM
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                print(f"[DEBUG] Attempting to display on Display 1: {time_str}")
-                # Try multiple method names
-                try:
-                    if hasattr(self.display1, 'print'):
-                        self.display1.print(time_str)
-                        print(f"[DEBUG] Used .print() method")
-                    elif hasattr(self.display1, 'write'):
-                        self.display1.write(time_str)
-                        print(f"[DEBUG] Used .write() method")
-                    elif hasattr(self.display1, 'show'):
-                        self.display1.show(time_str)
-                        print(f"[DEBUG] Used .show() method")
-                    else:
-                        print(f"[DEBUG] Available methods: {[m for m in dir(self.display1) if not m.startswith('_')]}")
-                except Exception as e:
-                    print(f"[DEBUG] Error with string display: {e}")
+                segments = self._convert_to_segments(time_str)
+                print(f"[DEBUG] Display 1 segments for {time_str}: {[hex(s) for s in segments]}")
+                self.display1.show(segments)
                 print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
             else:
-                try:
-                    if hasattr(self.display1, 'print'):
-                        self.display1.print("----")
-                    elif hasattr(self.display1, 'write'):
-                        self.display1.write("----")
-                    elif hasattr(self.display1, 'show'):
-                        self.display1.show("----")
-                except Exception as e:
-                    print(f"[DEBUG] Error displaying dashes: {e}")
+                segments = self._convert_to_segments("----")
+                print(f"[DEBUG] Display 1 segments for ----: {[hex(s) for s in segments]}")
+                self.display1.show(segments)
                 print(f"[DEBUG] Display 1 showing: ----")
             
-            # Display 2: Show second arrival time as HHMM (no colon to avoid character errors)
+            # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                print(f"[DEBUG] Attempting to display on Display 2: {time_str}")
-                try:
-                    if hasattr(self.display2, 'print'):
-                        self.display2.print(time_str)
-                    elif hasattr(self.display2, 'write'):
-                        self.display2.write(time_str)
-                    elif hasattr(self.display2, 'show'):
-                        self.display2.show(time_str)
-                except Exception as e:
-                    print(f"[DEBUG] Error with string display on display2: {e}")
+                segments = self._convert_to_segments(time_str)
+                print(f"[DEBUG] Display 2 segments for {time_str}: {[hex(s) for s in segments]}")
+                self.display2.show(segments)
                 print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
             else:
-                try:
-                    if hasattr(self.display2, 'print'):
-                        self.display2.print("----")
-                    elif hasattr(self.display2, 'write'):
-                        self.display2.write("----")
-                    elif hasattr(self.display2, 'show'):
-                        self.display2.show("----")
-                except Exception as e:
-                    print(f"[DEBUG] Error displaying dashes on display2: {e}")
+                segments = self._convert_to_segments("----")
+                print(f"[DEBUG] Display 2 segments for ----: {[hex(s) for s in segments]}")
+                self.display2.show(segments)
                 print(f"[DEBUG] Display 2 showing: ----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 def fetch_bus_arrivals(debug=False):
