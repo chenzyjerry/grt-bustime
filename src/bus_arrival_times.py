@@ -52,14 +52,6 @@ class DH_KeyAdapter(HTTPAdapter):
 
 class TM1637DisplayManager:
     """Manages two TM1637 4-digit 7-segment displays"""
-    
-    # 7-segment display codes for digits 0-9 and characters
-    SEGMENT_CODES = {
-        '0': 0x3f, '1': 0x06, '2': 0x5b, '3': 0x4f, '4': 0x66,
-        '5': 0x6d, '6': 0x7d, '7': 0x07, '8': 0x7f, '9': 0x6f,
-        '-': 0x40, ' ': 0x00
-    }
-    
     def __init__(self):
         self.display1 = None
         self.display2 = None
@@ -78,15 +70,6 @@ class TM1637DisplayManager:
                 print(f"[ERROR] Failed to initialize displays: {e}")
                 self.available = False
     
-    def _convert_to_segments(self, text):
-        """Convert text string to segment codes for display."""
-        # Pad to 4 characters
-        text = str(text).ljust(4)[:4]
-        segments = []
-        for char in text:
-            segments.append(self.SEGMENT_CODES.get(char, 0x00))
-        return segments
-    
     def show_arrivals(self, arrival1=None, arrival2=None):
         """Display arrival times on the two displays.
         arrival1, arrival2: arrival dicts with 'time' and 'route_id' keys, or None if no bus.
@@ -99,29 +82,21 @@ class TM1637DisplayManager:
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                segments = self._convert_to_segments(time_str)
-                print(f"[DEBUG] Display 1 segments for {time_str}: {[hex(s) for s in segments]}")
-                self.display1.show(segments)
                 print(f"[DEBUG] Display 1 showing: {time_str} (Route {arrival1['route_id']})")
+                self.display1.show(time_str)
             else:
-                segments = self._convert_to_segments("----")
-                print(f"[DEBUG] Display 1 segments for ----: {[hex(s) for s in segments]}")
-                self.display1.show(segments)
                 print(f"[DEBUG] Display 1 showing: ----")
+                self.display1.show("----")
             
             # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_str = local_time.strftime("%H%M")
-                segments = self._convert_to_segments(time_str)
-                print(f"[DEBUG] Display 2 segments for {time_str}: {[hex(s) for s in segments]}")
-                self.display2.show(segments)
                 print(f"[DEBUG] Display 2 showing: {time_str} (Route {arrival2['route_id']})")
+                self.display2.show(time_str)
             else:
-                segments = self._convert_to_segments("----")
-                print(f"[DEBUG] Display 2 segments for ----: {[hex(s) for s in segments]}")
-                self.display2.show(segments)
                 print(f"[DEBUG] Display 2 showing: ----")
+                self.display2.show("----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
             import traceback
