@@ -68,7 +68,13 @@ class CapacitiveSensorManager:
         
         if self.available:
             try:
-                GPIO.setmode(GPIO.BCM)
+                # Try to set GPIO mode, but don't fail if already set
+                try:
+                    GPIO.setmode(GPIO.BCM)
+                except RuntimeError:
+                    # GPIO mode already set, this is fine
+                    pass
+                
                 GPIO.setup(SENSOR_PIN, GPIO.IN)
                 # Use rising edge detection for when sensor is pressed
                 GPIO.add_event_detect(
@@ -80,6 +86,8 @@ class CapacitiveSensorManager:
                 print(f"[INFO] Capacitive sensor initialized on pin {SENSOR_PIN}.")
             except Exception as e:
                 print(f"[ERROR] Failed to initialize capacitive sensor: {e}")
+                import traceback
+                traceback.print_exc()
                 self.available = False
     
     def _sensor_pressed(self, channel):
