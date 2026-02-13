@@ -16,11 +16,11 @@ import sys
 import os
 from zoneinfo import ZoneInfo
 try:
-    import tm1637
+    from tm1637 import TM1637
     TM1637_AVAILABLE = True
 except ImportError:
     TM1637_AVAILABLE = False
-    print("Warning: tm1637 library not found. Display functionality disabled.")
+    print("Warning: raspberrypi-tm1637 library not found. Display functionality disabled.")
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -57,8 +57,8 @@ class TM1637DisplayManager:
         
         if self.available:
             try:
-                self.display1 = tm1637.TM1637(CLK=DISPLAY1_CLK, DIO=DISPLAY1_DIO)
-                self.display2 = tm1637.TM1637(CLK=DISPLAY2_CLK, DIO=DISPLAY2_DIO)
+                self.display1 = TM1637(CLK=DISPLAY1_CLK, DIO=DISPLAY1_DIO)
+                self.display2 = TM1637(CLK=DISPLAY2_CLK, DIO=DISPLAY2_DIO)
                 self.display1.brightness(7)  # 0-7 brightness levels
                 self.display2.brightness(7)
                 print("[INFO] TM1637 displays initialized on pins (CLK/DIO): ({}/{}), ({}/{}).".format(
