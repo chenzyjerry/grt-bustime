@@ -96,10 +96,6 @@ class CapacitiveSensorManager:
             except Exception as e:
                 print(f"[ERROR] Error cleaning up GPIO: {e}")
 
-
-class DH_KeyAdapter(HTTPAdapter):
-
-
 class TM1637DisplayManager:
     """Manages two TM1637 4-digit 7-segment displays"""
     def __init__(self):
