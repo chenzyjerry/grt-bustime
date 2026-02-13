@@ -65,6 +65,7 @@ class CapacitiveSensorManager:
     def __init__(self, callback=None):
         self.available = GPIO_AVAILABLE
         self.callback = callback
+        self.last_state = 0
         
         if self.available:
             try:
@@ -76,25 +77,37 @@ class CapacitiveSensorManager:
                     pass
                 
                 GPIO.setup(SENSOR_PIN, GPIO.IN)
-                # Use rising edge detection for when sensor is pressed
-                GPIO.add_event_detect(
-                    SENSOR_PIN,
-                    GPIO.RISING,
-                    callback=self._sensor_pressed,
-                    bouncetime=200
-                )
-                print(f"[INFO] Capacitive sensor initialized on pin {SENSOR_PIN}.")
+                
+                # Try to remove any existing event detection on this pin first
+                try:
+                    GPIO.remove_event_detect(SENSOR_PIN)
+                except RuntimeError:
+                    pass  # No existing event, that's fine
+                
+                # Use polling instead of event detection to avoid conflicts
+                print(f"[INFO] Capacitive sensor initialized on pin {SENSOR_PIN} (polling mode).")
             except Exception as e:
                 print(f"[ERROR] Failed to initialize capacitive sensor: {e}")
                 import traceback
                 traceback.print_exc()
                 self.available = False
     
-    def _sensor_pressed(self, channel):
-        """Callback when sensor is pressed"""
-        print("\n[INFO] Refresh button pressed!")
-        if self.callback:
-            self.callback()
+    def check_sensor(self):
+        """Poll the sensor and trigger callback if pressed (rising edge detected)"""
+        if not self.available:
+            return
+        
+        try:
+            current_state = GPIO.input(SENSOR_PIN)
+            # Detect rising edge (0 -> 1)
+            if current_state == 1 and self.last_state == 0:
+                print("\n[INFO] Refresh button pressed!")
+                if self.callback:
+                    self.callback()
+            self.last_state = current_state
+        except Exception as e:
+            print(f"[ERROR] Error reading capacitive sensor: {e}")
+            self.available = False
     
     def cleanup(self):
         """Clean up GPIO resources"""
@@ -300,6 +313,7 @@ def main():
                 # Clear displays when no future arrivals
                 display_manager.show_arrivals(arrival1=None, arrival2=None)
                 last_fetch_time = 0
+                sensor_manager.check_sensor()  # Poll sensor even when no arrivals
                 time.sleep(1)
                 continue
             
@@ -337,6 +351,9 @@ def main():
             )
             
             print(display_text, end="", flush=True)
+            
+            # Check sensor for button press
+            sensor_manager.check_sensor()
             
             # Update display every second
             time.sleep(1)
