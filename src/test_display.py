@@ -7,10 +7,10 @@ import time
 from tm1637 import TM1637
 
 # Display pins
-DISPLAY1_CLK = 11
-DISPLAY1_DIO = 13
-DISPLAY2_CLK = 12
-DISPLAY2_DIO = 15
+DISPLAY1_CLK = 17
+DISPLAY1_DIO = 22
+DISPLAY2_CLK = 18
+DISPLAY2_DIO = 27
 
 print("[TEST] Initializing displays...")
 try:

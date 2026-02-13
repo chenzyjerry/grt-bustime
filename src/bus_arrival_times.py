@@ -31,13 +31,13 @@ STOP_ID = "2783"
 LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
 
 # TM1637 Display Configuration
-DISPLAY1_CLK = 11
-DISPLAY1_DIO = 13
 DISPLAY1_ROUTE = "12"  # Route to display on display 1
-DISPLAY2_CLK = 12
-DISPLAY2_DIO = 15
-DISPLAY2_ROUTE = "19"  # Route to display on display 2
+DISPLAY1_CLK = 17
+DISPLAY1_DIO = 22
 
+DISPLAY2_ROUTE = "19"  # Route to display on display 2
+DISPLAY2_CLK = 18
+DISPLAY2_DIO = 27
 
 class DH_KeyAdapter(HTTPAdapter):
     """Custom adapter to allow weak DH keys for older servers"""
