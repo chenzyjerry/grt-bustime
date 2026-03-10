@@ -5,7 +5,7 @@ Uses the GTFS Realtime API provided by Region of Waterloo.
 """
 
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time as datetime_time
 from google.transit import gtfs_realtime_pb2
 import urllib3
 import ssl
@@ -15,6 +15,13 @@ import time
 import sys
 import os
 from zoneinfo import ZoneInfo
+try:
+    from astral import Observer
+    from astral.sun import sun
+    ASTRAL_AVAILABLE = True
+except ImportError:
+    ASTRAL_AVAILABLE = False
+    print("Warning: astral library not found. Sunset dimming disabled.")
 try:
     from tm1637 import TM1637
     TM1637_AVAILABLE = True
@@ -48,6 +55,36 @@ DISPLAY2_DIO = 23
 
 # Capacitive Sensor Configuration
 SENSOR_PIN = 4  # TTP223 sensor on GPIO pin 4
+
+# Sunset Dimming Configuration
+ENABLE_SUNSET_DIMMING = True  # Enable automatic dimming after sunset
+DAY_BRIGHTNESS = 7  # Brightness level during day (0-7)
+NIGHT_BRIGHTNESS = 2  # Brightness level after sunset (0-7)
+
+# Location for sunset calculation (Waterloo, Ontario, Canada)
+LOCATION_LATITUDE = 43.4516  # Waterloo latitude
+LOCATION_LONGITUDE = -80.4925  # Waterloo longitude
+
+def get_sunset_time(date=None):
+    """Calculate sunset time for the location.
+    Returns datetime object in LOCAL_TZ, or None if calculation fails.
+    """
+    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING:
+        return None
+    
+    try:
+        if date is None:
+            date = datetime.now(LOCAL_TZ).date()
+        else:
+            date = date.date() if isinstance(date, datetime) else date
+        
+        observer = Observer(latitude=LOCATION_LATITUDE, longitude=LOCATION_LONGITUDE, elevation=0)
+        sun_times = sun(observer, date=date, tzinfo=LOCAL_TZ)
+        return sun_times['sunset']
+    except Exception as e:
+        print(f"[ERROR] Failed to calculate sunset time: {e}")
+        return None
+
 
 class DH_KeyAdapter(HTTPAdapter):
     """Custom adapter to allow weak DH keys for older servers"""
@@ -142,19 +179,55 @@ class TM1637DisplayManager:
         self.display1 = None
         self.display2 = None
         self.available = TM1637_AVAILABLE
+        self.current_brightness = DAY_BRIGHTNESS
         print(f"[INFO] TM1637_AVAILABLE: {TM1637_AVAILABLE}")
         
         if self.available:
             try:
                 self.display1 = TM1637(clk=DISPLAY1_CLK, dio=DISPLAY1_DIO)
                 self.display2 = TM1637(clk=DISPLAY2_CLK, dio=DISPLAY2_DIO)
-                self.display1.brightness(7)  # 0-7 brightness levels
-                self.display2.brightness(7)
+                self.display1.brightness(DAY_BRIGHTNESS)  # 0-7 brightness levels
+                self.display2.brightness(DAY_BRIGHTNESS)
                 print("[INFO] TM1637 displays initialized on pins (CLK/DIO): ({}/{}), ({}/{}).".format(
                     DISPLAY1_CLK, DISPLAY1_DIO, DISPLAY2_CLK, DISPLAY2_DIO))
+                if ENABLE_SUNSET_DIMMING and ASTRAL_AVAILABLE:
+                    sunset = get_sunset_time()
+                    if sunset:
+                        print(f"[INFO] Sunset dimming enabled. Sunset time: {sunset.strftime('%H:%M')} (day brightness: {DAY_BRIGHTNESS}, night brightness: {NIGHT_BRIGHTNESS})")
             except Exception as e:
                 print(f"[ERROR] Failed to initialize displays: {e}")
                 self.available = False
+    
+    def update_brightness_for_time(self):
+        """Update display brightness based on current time relative to sunset.
+        Returns True if brightness was changed, False otherwise.
+        """
+        if not self.available or not ENABLE_SUNSET_DIMMING or not ASTRAL_AVAILABLE:
+            return False
+        
+        try:
+            now = datetime.now(LOCAL_TZ)
+            sunset = get_sunset_time(now)
+            
+            if sunset is None:
+                return False
+            
+            # Determine target brightness based on whether it's after sunset
+            target_brightness = NIGHT_BRIGHTNESS if now >= sunset else DAY_BRIGHTNESS
+            
+            # Update brightness if it changed
+            if target_brightness != self.current_brightness:
+                self.current_brightness = target_brightness
+                self.display1.brightness(target_brightness)
+                self.display2.brightness(target_brightness)
+                time_str = now.strftime('%H:%M:%S')
+                state = "night" if target_brightness == NIGHT_BRIGHTNESS else "day"
+                print(f"[INFO] [{time_str}] Brightness updated to {target_brightness} ({state} mode)")
+                return True
+            return False
+        except Exception as e:
+            print(f"[ERROR] Failed to update brightness: {e}")
+            return False
     
     def show_arrivals(self, arrival1=None, arrival2=None):
         """Display arrival times on the two displays.
@@ -332,16 +405,32 @@ def main():
                         time.sleep(1)
                         wait_time -= 1
                     continue
-            
-            # Display current arrivals with countdown
-            now = datetime.now(timezone.utc)
-            print(f"\r[{now.strftime('%H:%M:%S')}] Next bus arrivals for stop {STOP_ID}:", end="")
+                else:
+                    # Print the updated arrivals when successfully fetched
+                    now = datetime.now(timezone.utc)
+                    print(f"[{now.strftime('%H:%M:%S')}] Updated arrivals for stop {STOP_ID}:")
+                    
+                    # Find and print arrivals for specific routes
+                    arrival_route12 = None
+                    arrival_route19 = None
+                    
+                    for arrival in arrivals:
+                        if arrival["route_id"] == DISPLAY1_ROUTE and arrival_route12 is None:
+                            arrival_route12 = arrival
+                        if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
+                            arrival_route19 = arrival
+                    
+                    # Print the next arrivals
+                    for arrival in [a for a in [arrival_route12, arrival_route19] if a is not None]:
+                        local_time = arrival["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        route_id = arrival["route_id"]
+                        print(f"  Route {route_id}: {time_str}")
             
             # Check if any arrivals have passed
             future_arrivals = [a for a in arrivals if a["time"] > datetime.now(timezone.utc)]
             
             if not future_arrivals:
-                print(" (No upcoming arrivals, refreshing...)")
                 # Clear displays when no future arrivals
                 display_manager.show_arrivals(arrival1=None, arrival2=None)
                 last_fetch_time = 0
@@ -359,36 +448,20 @@ def main():
                 if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
                     arrival_route19 = arrival
             
-            # Display the next arrivals with countdown
-            display_text = ""
-            arrival_list = [a for a in [arrival_route12, arrival_route19] if a is not None]
-            
-            for i, arrival in enumerate(arrival_list, 1):
-                now = datetime.now(timezone.utc)  # Recalculate current time for accurate countdown
-                minutes_remaining = (arrival["time"] - now).total_seconds() / 60
-                local_time = arrival["time"].astimezone(LOCAL_TZ)
-                time_str = local_time.strftime("%I:%M %p")
-                route_id = arrival["route_id"]
-                
-                if minutes_remaining < 1:
-                    countdown_str = f"{int((arrival['time'] - now).total_seconds())}s"
-                else:
-                    countdown_str = f"{int(minutes_remaining)}m {int((arrival['time'] - now).total_seconds() % 60)}s"
-                
-                display_text += f" | Route {route_id}: {time_str} ({countdown_str})"
-            
             # Update TM1637 displays with arrival times for specific routes
             display_manager.show_arrivals(
                 arrival1=arrival_route12,
                 arrival2=arrival_route19
             )
             
-            print(display_text, end="", flush=True)
-            
             # Check sensor for button press
             sensor_manager.check_sensor()
             
-            # Update display every second
+            # Update brightness based on sunset time (check once per minute is enough)
+            if int(current_time) % 60 == 0:
+                display_manager.update_brightness_for_time()
+            
+            # Sleep without printing every iteration
             time.sleep(1)
     
     except KeyboardInterrupt:
