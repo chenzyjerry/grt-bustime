@@ -1,0 +1,58 @@
+# GRT Bus Time Display Configuration File
+# This file contains all configurable settings for the bus arrival time display system.
+# Modify values below and save the file, then restart the program.
+
+# ==================== API Configuration ====================
+# API endpoint to fetch real-time bus data
+API_URL = https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1
+
+# Bus stop ID where you want to monitor arrivals
+STOP_ID = 2783
+
+# Timezone (IANA timezone name)
+LOCAL_TZ = America/Toronto
+
+# ==================== Display 1 Configuration ====================
+# Route number to display on display 1
+DISPLAY1_ROUTE = 12
+
+# GPIO pin for display 1 clock signal
+DISPLAY1_CLK = 27
+
+# GPIO pin for display 1 data signal
+DISPLAY1_DIO = 17
+
+# ==================== Display 2 Configuration ====================
+# Route number to display on display 2
+DISPLAY2_ROUTE = 19
+
+# GPIO pin for display 2 clock signal
+DISPLAY2_CLK = 24
+
+# GPIO pin for display 2 data signal
+DISPLAY2_DIO = 23
+
+# ==================== Capacitive Sensor Configuration ====================
+# GPIO pin for the TTP223 capacitive touch sensor
+SENSOR_PIN = 4
+
+# ==================== Sunset Dimming Configuration ====================
+# Enable automatic brightness dimming after sunset (true/false)
+ENABLE_SUNSET_DIMMING = true
+
+# Display brightness during day (0-7, where 7 is brightest)
+DAY_BRIGHTNESS = 7
+
+# Display brightness after sunset (0-7, where 7 is brightest)
+NIGHT_BRIGHTNESS = 2
+
+# ==================== Location Configuration ====================
+# Latitude of your location (for sunset calculation)
+LOCATION_LATITUDE = 43.4516
+
+# Longitude of your location (for sunset calculation)
+LOCATION_LONGITUDE = -80.4925
+
+# ==================== Refresh Interval ====================
+# How often to refresh bus arrival times (in seconds)
+REFRESH_INTERVAL = 180

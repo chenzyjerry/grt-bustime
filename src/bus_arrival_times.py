@@ -15,6 +15,7 @@ import time
 import sys
 import os
 from zoneinfo import ZoneInfo
+from pathlib import Path
 try:
     from astral import Observer
     from astral.sun import sun
@@ -39,31 +40,97 @@ except ImportError:
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Configuration
-API_URL = "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1"
-STOP_ID = "2783"
-LOCAL_TZ = ZoneInfo("America/Toronto")  # Eastern Time
+
+def load_config():
+    """Load configuration from config.txt file.
+    Returns a dictionary with all configuration values.
+    Raises FileNotFoundError if config.txt doesn't exist.
+    """
+    config_path = Path(__file__).parent / "config.txt"
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    
+    config = {}
+    
+    with open(config_path, 'r') as f:
+        for line in f:
+            # Skip empty lines and comments
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            # Parse key = value pairs
+            if '=' in line:
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                
+                # Convert string values to appropriate types
+                if value.lower() == 'true':
+                    config[key] = True
+                elif value.lower() == 'false':
+                    config[key] = False
+                else:
+                    # Try to convert to number, otherwise keep as string
+                    try:
+                        if '.' in value:
+                            config[key] = float(value)
+                        else:
+                            config[key] = int(value)
+                    except ValueError:
+                        config[key] = value
+    
+    return config
+
+
+# Load configuration from file
+try:
+    CONFIG = load_config()
+except FileNotFoundError as e:
+    print(f"Error: {e}")
+    print("Please create a config.txt file in the src directory.")
+    sys.exit(1)
+
+# Extract configuration values
+API_URL = CONFIG.get("API_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1")
+STOP_ID = str(CONFIG.get("STOP_ID", "2783"))
+LOCAL_TZ = ZoneInfo(CONFIG.get("LOCAL_TZ", "America/Toronto"))
 
 # TM1637 Display Configuration
-DISPLAY1_ROUTE = "12"  # Route to display on display 1
-DISPLAY1_CLK = 27
-DISPLAY1_DIO = 17
+DISPLAY1_ROUTE = str(CONFIG.get("DISPLAY1_ROUTE", "12"))
+DISPLAY1_CLK = int(CONFIG.get("DISPLAY1_CLK", 27))
+DISPLAY1_DIO = int(CONFIG.get("DISPLAY1_DIO", 17))
 
-DISPLAY2_ROUTE = "19"  # Route to display on display 2
-DISPLAY2_CLK = 24
-DISPLAY2_DIO = 23
+DISPLAY2_ROUTE = str(CONFIG.get("DISPLAY2_ROUTE", "19"))
+DISPLAY2_CLK = int(CONFIG.get("DISPLAY2_CLK", 24))
+DISPLAY2_DIO = int(CONFIG.get("DISPLAY2_DIO", 23))
 
 # Capacitive Sensor Configuration
-SENSOR_PIN = 4  # TTP223 sensor on GPIO pin 4
+SENSOR_PIN = int(CONFIG.get("SENSOR_PIN", 4))
 
 # Sunset Dimming Configuration
-ENABLE_SUNSET_DIMMING = True  # Enable automatic dimming after sunset
-DAY_BRIGHTNESS = 7  # Brightness level during day (0-7)
-NIGHT_BRIGHTNESS = 2  # Brightness level after sunset (0-7)
+ENABLE_SUNSET_DIMMING = CONFIG.get("ENABLE_SUNSET_DIMMING", True)
+DAY_BRIGHTNESS = int(CONFIG.get("DAY_BRIGHTNESS", 7))
+NIGHT_BRIGHTNESS = int(CONFIG.get("NIGHT_BRIGHTNESS", 2))
 
-# Location for sunset calculation (Waterloo, Ontario, Canada)
-LOCATION_LATITUDE = 43.4516  # Waterloo latitude
-LOCATION_LONGITUDE = -80.4925  # Waterloo longitude
+# Location for sunset calculation
+LOCATION_LATITUDE = float(CONFIG.get("LOCATION_LATITUDE", 43.4516))
+LOCATION_LONGITUDE = float(CONFIG.get("LOCATION_LONGITUDE", -80.4925))
+
+# Refresh interval in seconds
+REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
+
+# Log loaded configuration on startup
+print("[INFO] Configuration loaded from config.txt:")
+print(f"[INFO]   Stop ID: {STOP_ID}")
+print(f"[INFO]   Route 1: {DISPLAY1_ROUTE} (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
+print(f"[INFO]   Route 2: {DISPLAY2_ROUTE} (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
+print(f"[INFO]   Refresh interval: {REFRESH_INTERVAL} seconds")
+if ENABLE_SUNSET_DIMMING:
+    print(f"[INFO]   Sunset dimming: enabled (day: {DAY_BRIGHTNESS}, night: {NIGHT_BRIGHTNESS})")
+else:
+    print(f"[INFO]   Sunset dimming: disabled")
 
 def get_sunset_time(date=None):
     """Calculate sunset time for the location.
@@ -241,20 +308,16 @@ class TM1637DisplayManager:
             if arrival1:
                 local_time = arrival1["time"].astimezone(LOCAL_TZ)
                 time_obj = local_time.time()
-                print(f"[DEBUG] Display 1 showing: {time_obj} (Route {arrival1['route_id']})")
                 self.display1.time(time_obj, colon=True, leading_zero=False)
             else:
-                print(f"[DEBUG] Display 1 showing: ----")
                 self.display1.show("----")
             
             # Display 2: Show second arrival time as HHMM
             if arrival2:
                 local_time = arrival2["time"].astimezone(LOCAL_TZ)
                 time_obj = local_time.time()
-                print(f"[DEBUG] Display 2 showing: {time_obj} (Route {arrival2['route_id']})")
                 self.display2.time(time_obj, colon=True, leading_zero=False)
             else:
-                print(f"[DEBUG] Display 2 showing: ----")
                 self.display2.show("----")
         except Exception as e:
             print(f"[ERROR] Failed to update displays: {e}")
@@ -374,7 +437,7 @@ def fetch_bus_arrivals(debug=False):
 
 def main():
     """Main entry point with continuous countdown and periodic refresh."""
-    refresh_interval = 3 * 60  # 3 minutes in seconds
+    refresh_interval = REFRESH_INTERVAL  # Read from config file
     last_fetch_time = 0
     arrivals = []
     debug_mode = "--debug" in sys.argv
