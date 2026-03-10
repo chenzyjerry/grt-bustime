@@ -267,88 +267,109 @@ def fetch_bus_arrivals(debug=False):
     Fetch and parse bus arrival times for the specified stop.
     Returns a list of tuples (arrival_time, route_id, trip_id).
     """
-    try:
-        # Create session with custom SSL adapter
-        session = requests.Session()
-        session.mount("https://", DH_KeyAdapter())
-        
-        # Download the protobuf file
-        response = session.get(API_URL, timeout=10)
-        response.raise_for_status()
+    max_retries = 3
+    retry_delay = 1  # Start with 1 second delay
+    
+    for attempt in range(max_retries):
+        try:
+            # Create session with custom SSL adapter
+            session = requests.Session()
+            session.mount("https://", DH_KeyAdapter())
+            
+            # Add User-Agent header (required by many servers)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            # Download the protobuf file
+            response = session.get(API_URL, headers=headers, timeout=10)
+            response.raise_for_status()
 
-        # Parse the protobuf message
-        feed = gtfs_realtime_pb2.FeedMessage()
-        feed.ParseFromString(response.content)
+            # Parse the protobuf message
+            feed = gtfs_realtime_pb2.FeedMessage()
+            feed.ParseFromString(response.content)
 
-        # Collect arrival times for our stop
-        arrivals = []
-        total_entities = len(feed.entity)
-        matched_stop_count = 0
+            # Collect arrival times for our stop
+            arrivals = []
+            total_entities = len(feed.entity)
+            matched_stop_count = 0
 
-        for entity in feed.entity:
-            if entity.HasField("trip_update"):
-                trip_update = entity.trip_update
-                
-                # Check each stop time update
-                for stop_time_update in trip_update.stop_time_update:
-                    if debug:
-                        print(f"  Stop ID in data: '{stop_time_update.stop_id}' (type: {type(stop_time_update.stop_id).__name__})")
+            for entity in feed.entity:
+                if entity.HasField("trip_update"):
+                    trip_update = entity.trip_update
                     
-                    if str(stop_time_update.stop_id) == STOP_ID:
-                        matched_stop_count += 1
-                        # Get arrival time (prefer arrival over departure)
-                        if stop_time_update.HasField("arrival"):
-                            timestamp = stop_time_update.arrival.time
-                        elif stop_time_update.HasField("departure"):
-                            timestamp = stop_time_update.departure.time
-                        else:
-                            continue
+                    # Check each stop time update
+                    for stop_time_update in trip_update.stop_time_update:
+                        if debug:
+                            print(f"  Stop ID in data: '{stop_time_update.stop_id}' (type: {type(stop_time_update.stop_id).__name__})")
+                        
+                        if str(stop_time_update.stop_id) == STOP_ID:
+                            matched_stop_count += 1
+                            # Get arrival time (prefer arrival over departure)
+                            if stop_time_update.HasField("arrival"):
+                                timestamp = stop_time_update.arrival.time
+                            elif stop_time_update.HasField("departure"):
+                                timestamp = stop_time_update.departure.time
+                            else:
+                                continue
 
-                        # Convert Unix timestamp to datetime (UTC-aware)
-                        arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                        route_id = trip_update.trip.route_id
-                        trip_id = trip_update.trip.trip_id
+                            # Convert Unix timestamp to datetime (UTC-aware)
+                            arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                            route_id = trip_update.trip.route_id
+                            trip_id = trip_update.trip.trip_id
 
-                        arrivals.append({
-                            "time": arrival_time,
-                            "route_id": route_id,
-                            "trip_id": trip_id,
-                            "timestamp": timestamp
-                        })
+                            arrivals.append({
+                                "time": arrival_time,
+                                "route_id": route_id,
+                                "trip_id": trip_id,
+                                "timestamp": timestamp
+                            })
 
-        if debug:
-            print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
-            for arr in arrivals[:3]:  # Show first 3 arrivals
-                local_time = arr["time"].astimezone(LOCAL_TZ)
-                print(f"  Arrival time: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
+            if debug:
+                print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
+                for arr in arrivals[:3]:  # Show first 3 arrivals
+                    local_time = arr["time"].astimezone(LOCAL_TZ)
+                    print(f"  Arrival time: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
 
-        # Sort by arrival time
-        arrivals.sort(key=lambda x: x["timestamp"])
-        
-        # Filter future arrivals only - use UTC-aware comparison
-        now = datetime.now(timezone.utc)
-        future_arrivals = [a for a in arrivals if a["time"] > now]
-        
-        # Filter to only include arrivals for the desired routes
-        desired_routes = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
-        filtered_arrivals = [a for a in future_arrivals if a["route_id"] in desired_routes]
-        
-        if debug and len(arrivals) > 0:
-            now_local = now.astimezone(LOCAL_TZ)
-            print(f"Current time - UTC: {now}, Local: {now_local}")
-            print(f"Future arrivals (all routes): {len(future_arrivals)}")
-            print(f"Future arrivals (desired routes {desired_routes}): {len(filtered_arrivals)}")
-        
-        return filtered_arrivals
-
-    except requests.RequestException as e:
-        print(f"Error fetching data from API: {e}")
-        return []
-    except Exception as e:
-        print(f"Error parsing feed: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
+            # Sort by arrival time
+            arrivals.sort(key=lambda x: x["timestamp"])
+            
+            # Filter future arrivals only - use UTC-aware comparison
+            now = datetime.now(timezone.utc)
+            future_arrivals = [a for a in arrivals if a["time"] > now]
+            
+            # Filter to only include arrivals for the desired routes
+            desired_routes = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
+            filtered_arrivals = [a for a in future_arrivals if a["route_id"] in desired_routes]
+            
+            if debug and len(arrivals) > 0:
+                now_local = now.astimezone(LOCAL_TZ)
+                print(f"Current time - UTC: {now}, Local: {now_local}")
+                print(f"Future arrivals (all routes): {len(future_arrivals)}")
+                print(f"Future arrivals (desired routes {desired_routes}): {len(filtered_arrivals)}")
+            
+            return filtered_arrivals
+            
+        except requests.exceptions.ConnectionError as e:
+            if attempt < max_retries - 1:
+                print(f"Connection error (attempt {attempt + 1}/{max_retries}): {e}")
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                continue
+            else:
+                print(f"Failed to connect after {max_retries} attempts: {e}")
+                return []
+        except requests.RequestException as e:
+            print(f"Error fetching data from API: {e}")
+            return []
+        except Exception as e:
+            print(f"Error parsing feed: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    return []
 
 
 def main():
