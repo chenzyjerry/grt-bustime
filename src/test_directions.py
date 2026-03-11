@@ -221,7 +221,7 @@ def test_directions():
                 directions[direction].append(arrival)
             
             # Get all unique direction values (sorted)
-            dir_list = sorted([d for d in directions.keys() if d is not None], default=[])
+            dir_list = sorted([d for d in directions.keys() if d is not None])
             
             if len(dir_list) == 2:
                 dir0, dir1 = dir_list[0], dir_list[1]
@@ -277,7 +277,7 @@ def test_directions():
                     directions[direction] = []
                 directions[direction].append(arrival)
             
-            dir_list = sorted([d for d in directions.keys() if d is not None], default=[])
+            dir_list = sorted([d for d in directions.keys() if d is not None])
             
             if route == DISPLAY1_ROUTE:
                 print(f"\nRoute {DISPLAY1_ROUTE} (DISPLAY1):")
