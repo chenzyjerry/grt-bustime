@@ -99,10 +99,12 @@ LOCAL_TZ = ZoneInfo(CONFIG.get("LOCAL_TZ", "America/Toronto"))
 
 # TM1637 Display Configuration
 DISPLAY1_ROUTE = str(CONFIG.get("DISPLAY1_ROUTE", "12"))
+DISPLAY1_DIRECTION = int(CONFIG.get("DISPLAY1_DIRECTION", 0))
 DISPLAY1_CLK = int(CONFIG.get("DISPLAY1_CLK", 27))
 DISPLAY1_DIO = int(CONFIG.get("DISPLAY1_DIO", 17))
 
 DISPLAY2_ROUTE = str(CONFIG.get("DISPLAY2_ROUTE", "19"))
+DISPLAY2_DIRECTION = int(CONFIG.get("DISPLAY2_DIRECTION", 0))
 DISPLAY2_CLK = int(CONFIG.get("DISPLAY2_CLK", 24))
 DISPLAY2_DIO = int(CONFIG.get("DISPLAY2_DIO", 23))
 
@@ -124,6 +126,12 @@ REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
 # Routes set for filtering (created once to avoid recreation on every fetch)
 DESIRED_ROUTES = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
 
+# Route to direction mapping for filtering
+ROUTE_DIRECTIONS = {
+    DISPLAY1_ROUTE: DISPLAY1_DIRECTION,
+    DISPLAY2_ROUTE: DISPLAY2_DIRECTION
+}
+
 # Observer for sun calculations (cached to avoid recreation)
 _OBSERVER = None
 if ASTRAL_AVAILABLE and ENABLE_SUNSET_DIMMING:
@@ -135,8 +143,8 @@ _API_SESSION = None
 # Log loaded configuration on startup
 print("[INFO] Configuration loaded from config.txt:")
 print(f"[INFO]   Stop ID: {STOP_ID}")
-print(f"[INFO]   Route 1: {DISPLAY1_ROUTE} (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
-print(f"[INFO]   Route 2: {DISPLAY2_ROUTE} (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
+print(f"[INFO]   Route 1: {DISPLAY1_ROUTE} Direction {DISPLAY1_DIRECTION} (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
+print(f"[INFO]   Route 2: {DISPLAY2_ROUTE} Direction {DISPLAY2_DIRECTION} (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
 print(f"[INFO]   Refresh interval: {REFRESH_INTERVAL} seconds")
 if ENABLE_SUNSET_DIMMING:
     print(f"[INFO]   Sunset dimming: enabled (day: {DAY_BRIGHTNESS}, night: {NIGHT_BRIGHTNESS})")
@@ -446,11 +454,14 @@ def fetch_bus_arrivals(debug=False):
                             arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                             route_id = trip_update.trip.route_id
                             trip_id = trip_update.trip.trip_id
+                            # Get direction_id if available
+                            direction_id = trip_update.trip.direction_id if trip_update.trip.HasField("direction_id") else None
 
                             arrivals.append({
                                 "time": arrival_time,
                                 "route_id": route_id,
                                 "trip_id": trip_id,
+                                "direction_id": direction_id,
                                 "timestamp": timestamp
                             })
 
@@ -458,7 +469,7 @@ def fetch_bus_arrivals(debug=False):
                 print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
                 for arr in arrivals[:3]:  # Show first 3 arrivals
                     local_time = arr["time"].astimezone(LOCAL_TZ)
-                    print(f"  Arrival time: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
+                    print(f"  Route {arr['route_id']}, Direction {arr['direction_id']}: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
 
             # Sort by arrival time
             arrivals.sort(key=lambda x: x["timestamp"])
@@ -467,14 +478,19 @@ def fetch_bus_arrivals(debug=False):
             now_timestamp = datetime.now(timezone.utc).timestamp()
             future_arrivals = [a for a in arrivals if a["timestamp"] > now_timestamp]
             
-            # Filter to only include arrivals for the desired routes
-            filtered_arrivals = [a for a in future_arrivals if a["route_id"] in DESIRED_ROUTES]
+            # Filter to only include arrivals for the desired routes and directions
+            filtered_arrivals = [
+                a for a in future_arrivals 
+                if a["route_id"] in DESIRED_ROUTES and 
+                   (a["direction_id"] is None or a["direction_id"] == ROUTE_DIRECTIONS.get(a["route_id"]))
+            ]
             
             if debug and len(arrivals) > 0:
+                now = datetime.now(timezone.utc)
                 now_local = now.astimezone(LOCAL_TZ)
                 print(f"Current time - UTC: {now}, Local: {now_local}")
                 print(f"Future arrivals (all routes): {len(future_arrivals)}")
-                print(f"Future arrivals (desired routes {desired_routes}): {len(filtered_arrivals)}")
+                print(f"Future arrivals (desired routes with directions): {len(filtered_arrivals)}")
             
             return filtered_arrivals
             

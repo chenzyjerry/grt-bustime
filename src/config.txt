@@ -16,6 +16,9 @@ LOCAL_TZ = America/Toronto
 # Route number to display on display 1
 DISPLAY1_ROUTE = 12
 
+# Direction ID for display 1 (0 or 1, based on route direction)
+DISPLAY1_DIRECTION = 0
+
 # GPIO pin for display 1 clock signal
 DISPLAY1_CLK = 27
 
@@ -25,6 +28,9 @@ DISPLAY1_DIO = 17
 # ==================== Display 2 Configuration ====================
 # Route number to display on display 2
 DISPLAY2_ROUTE = 19
+
+# Direction ID for display 2 (0 or 1, based on route direction)
+DISPLAY2_DIRECTION = 0
 
 # GPIO pin for display 2 clock signal
 DISPLAY2_CLK = 24
