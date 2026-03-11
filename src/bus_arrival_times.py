@@ -269,7 +269,9 @@ class TM1637DisplayManager:
         """Update display brightness based on current time relative to sunset.
         Returns True if brightness was changed, False otherwise.
         """
+        print(f"[DEBUG] update_brightness_for_time called: available={self.available}, ENABLE_SUNSET_DIMMING={ENABLE_SUNSET_DIMMING}, ASTRAL_AVAILABLE={ASTRAL_AVAILABLE}")
         if not self.available or not ENABLE_SUNSET_DIMMING or not ASTRAL_AVAILABLE:
+            print(f"[DEBUG] Skipping brightness update (available={self.available}, dimming_enabled={ENABLE_SUNSET_DIMMING}, astral_available={ASTRAL_AVAILABLE})")
             return False
         
         try:
@@ -277,10 +279,14 @@ class TM1637DisplayManager:
             sunset = get_sunset_time(now)
             
             if sunset is None:
+                print(f"[DEBUG] Sunset calculation returned None")
                 return False
             
             # Determine target brightness based on whether it's after sunset
             target_brightness = NIGHT_BRIGHTNESS if now >= sunset else DAY_BRIGHTNESS
+            
+            # Debug output
+            print(f"[DEBUG] Brightness check: now={now.strftime('%H:%M:%S')}, sunset={sunset.strftime('%H:%M:%S')}, is_after_sunset={now >= sunset}, target={target_brightness}, current={self.current_brightness}")
             
             # Update brightness if it changed
             if target_brightness != self.current_brightness:
@@ -294,6 +300,8 @@ class TM1637DisplayManager:
             return False
         except Exception as e:
             print(f"[ERROR] Failed to update brightness: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def show_arrivals(self, arrival1=None, arrival2=None):
@@ -543,7 +551,9 @@ def main():
             sensor_manager.check_sensor()
             
             # Update brightness based on sunset time (check once per minute)
-            if current_time - last_brightness_check_time >= 60:
+            time_since_last_check = current_time - last_brightness_check_time
+            if time_since_last_check >= 60:
+                print(f"[DEBUG] Checking brightness (last check was {time_since_last_check:.1f}s ago)")
                 display_manager.update_brightness_for_time()
                 last_brightness_check_time = current_time
             
