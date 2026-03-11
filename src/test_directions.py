@@ -208,8 +208,9 @@ def test_directions():
         
         for route in sorted(routes.keys()):
             arrivals = routes[route]
-            print(f"Route {route}:")
-            print("-" * 80)
+            print(f"\n{'='*80}")
+            print(f"ROUTE {route}")
+            print(f"{'='*80}")
             
             # Group by direction
             directions = {}
@@ -219,39 +220,79 @@ def test_directions():
                     directions[direction] = []
                 directions[direction].append(arrival)
             
-            for direction in sorted(directions.keys(), key=lambda x: (x is None, x)):
-                direction_arrivals = directions[direction]
-                direction_str = f"Direction {direction}" if direction is not None else "Direction [NONE]"
-                print(f"  {direction_str} ({len(direction_arrivals)} arrivals):")
-                
-                for arrival in direction_arrivals[:3]:  # Show first 3
-                    local_time = arrival["time"].astimezone(LOCAL_TZ)
-                    time_str = local_time.strftime("%I:%M %p")
-                    print(f"    {time_str} (trip: {arrival['trip_id']})")
-                
-                if len(direction_arrivals) > 3:
-                    print(f"    ... and {len(direction_arrivals) - 3} more")
+            # Get all unique direction values (sorted)
+            dir_list = sorted([d for d in directions.keys() if d is not None], default=[])
             
-            print()
+            if len(dir_list) == 2:
+                dir0, dir1 = dir_list[0], dir_list[1]
+                arrivals_dir0 = directions.get(dir0, [])
+                arrivals_dir1 = directions.get(dir1, [])
+                
+                print(f"\nDirection {dir0}:".ljust(40) + f"Direction {dir1}:")
+                print("-" * 40 + "-" * 40)
+                
+                max_arrivals = max(len(arrivals_dir0), len(arrivals_dir1))
+                for i in range(max_arrivals):
+                    left = ""
+                    if i < len(arrivals_dir0):
+                        local_time = arrivals_dir0[i]["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        left = f"  {time_str}"
+                    
+                    right = ""
+                    if i < len(arrivals_dir1):
+                        local_time = arrivals_dir1[i]["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        right = f"  {time_str}"
+                    
+                    print(left.ljust(40) + right)
+                
+                print(f"\nTotal arrivals: {len(arrivals_dir0)}".ljust(40) + f"Total arrivals: {len(arrivals_dir1)}")
+            else:
+                # Fallback to original display if not exactly 2 directions
+                for direction in sorted(directions.keys(), key=lambda x: (x is None, x)):
+                    direction_arrivals = directions[direction]
+                    direction_str = f"Direction {direction}" if direction is not None else "Direction [NONE]"
+                    print(f"\n{direction_str} ({len(direction_arrivals)} arrivals):")
+                    
+                    for arrival in direction_arrivals[:5]:
+                        local_time = arrival["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        print(f"  {time_str} (trip: {arrival['trip_id']})")
+                    
+                    if len(direction_arrivals) > 5:
+                        print(f"  ... and {len(direction_arrivals) - 5} more")
         
         # Summary for config
         print("\n" + "=" * 80)
         print("SUMMARY FOR CONFIG.TXT:")
         print("=" * 80)
         
-        if DISPLAY1_ROUTE in routes:
-            route1_directions = set()
-            for arrival in routes[DISPLAY1_ROUTE]:
-                route1_directions.add(arrival["direction_id"])
-            print(f"Route {DISPLAY1_ROUTE} has directions: {sorted(route1_directions)}")
-            print(f"  Suggestion: Set DISPLAY1_DIRECTION = {min([d for d in route1_directions if d is not None], default=0)}")
-        
-        if DISPLAY2_ROUTE in routes:
-            route2_directions = set()
-            for arrival in routes[DISPLAY2_ROUTE]:
-                route2_directions.add(arrival["direction_id"])
-            print(f"Route {DISPLAY2_ROUTE} has directions: {sorted(route2_directions)}")
-            print(f"  Suggestion: Set DISPLAY2_DIRECTION = {min([d for d in route2_directions if d is not None], default=0)}")
+        for route in sorted(routes.keys()):
+            route_arrivals = routes[route]
+            directions = {}
+            for arrival in route_arrivals:
+                direction = arrival["direction_id"]
+                if direction not in directions:
+                    directions[direction] = []
+                directions[direction].append(arrival)
+            
+            dir_list = sorted([d for d in directions.keys() if d is not None], default=[])
+            
+            if route == DISPLAY1_ROUTE:
+                print(f"\nRoute {DISPLAY1_ROUTE} (DISPLAY1):")
+                print(f"  Available directions: {dir_list}")
+                if len(dir_list) > 0:
+                    print(f"  Set DISPLAY1_DIRECTION = {dir_list[0]} or {dir_list[1] if len(dir_list) > 1 else 'none'}")
+                else:
+                    print(f"  No direction data available")
+            elif route == DISPLAY2_ROUTE:
+                print(f"\nRoute {DISPLAY2_ROUTE} (DISPLAY2):")
+                print(f"  Available directions: {dir_list}")
+                if len(dir_list) > 0:
+                    print(f"  Set DISPLAY2_DIRECTION = {dir_list[0]} or {dir_list[1] if len(dir_list) > 1 else 'none'}")
+                else:
+                    print(f"  No direction data available")
         
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data from API: {e}")
