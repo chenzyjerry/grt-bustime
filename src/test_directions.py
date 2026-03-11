@@ -81,7 +81,7 @@ def get_api_session():
 def load_static_gtfs_directions(static_gtfs_url):
     """
     Load trip-to-direction mapping from static GTFS data.
-    Returns a dictionary mapping trip_id to direction_id.
+    Returns a dictionary mapping trip_id to (direction_id, trip_headsign).
     """
     trip_to_direction = {}
     
@@ -99,17 +99,22 @@ def load_static_gtfs_directions(static_gtfs_url):
         
         # Extract and parse the trips.txt file
         with zipfile.ZipFile(io.BytesIO(response.content)) as zip_file:
-            # Read trips.txt to get trip_id -> direction_id mapping
+            # Read trips.txt to get trip_id -> direction_id and headsign mapping
             with zip_file.open('trips.txt') as f:
                 reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8'))
                 for row in reader:
                     trip_id = row.get('trip_id')
                     direction_id = row.get('direction_id')
-                    if trip_id and direction_id is not None:
+                    headsign = row.get('trip_headsign', '')
+                    if trip_id:
                         try:
-                            trip_to_direction[trip_id] = int(direction_id)
+                            dir_id = int(direction_id) if direction_id else None
                         except (ValueError, TypeError):
-                            pass  # Skip invalid direction IDs
+                            dir_id = None
+                        trip_to_direction[trip_id] = {
+                            'direction_id': dir_id,
+                            'headsign': headsign
+                        }
         
         print(f"[INFO] Loaded {len(trip_to_direction)} trip-direction mappings from static GTFS data.\n")
         return trip_to_direction
@@ -175,14 +180,17 @@ def test_directions():
                         arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                         route_id = trip_update.trip.route_id
                         trip_id = trip_update.trip.trip_id
-                        # Get direction_id from static GTFS data mapping
-                        direction_id = trip_to_direction.get(trip_id)
+                        # Get direction_id and headsign from static GTFS data mapping
+                        trip_info = trip_to_direction.get(trip_id, {})
+                        direction_id = trip_info.get('direction_id')
+                        headsign = trip_info.get('headsign', '')
                         
                         all_arrivals.append({
                             "time": arrival_time,
                             "route_id": route_id,
                             "trip_id": trip_id,
                             "direction_id": direction_id,
+                            "headsign": headsign,
                             "timestamp": timestamp
                         })
         
@@ -212,111 +220,132 @@ def test_directions():
             print(f"ROUTE {route}")
             print(f"{'='*80}")
             
-            # Group by direction
+            # Group by headsign (destination/direction name)
+            # Use headsign since direction_id is all 0s in GRT data
             directions = {}
             for arrival in arrivals:
-                direction = arrival["direction_id"]
-                if direction not in directions:
-                    directions[direction] = []
-                directions[direction].append(arrival)
+                headsign = arrival.get("headsign", "Unknown")
+                if headsign not in directions:
+                    directions[headsign] = []
+                directions[headsign].append(arrival)
             
-            # Get all unique direction values (sorted, including None)
-            dir_list = sorted([d for d in directions.keys()])
+            # Get all unique headsigns (sorted)
+            headsign_list = sorted([h for h in directions.keys() if h])  # Filter out empty strings
             
-            # Check if any trips don't have direction data
-            has_none_direction = None in directions
+            # Check if any trips don't have headsign data
+            has_no_headsign = "Unknown" in directions
             
-            if len(dir_list) >= 2:
-                # Show side-by-side comparison when 2+ directions exist
-                dir0, dir1 = dir_list[0] if dir_list[0] is not None else dir_list[1], None if dir_list[0] is not None else dir_list[0]
-                if None in dir_list:
-                    numeric_dirs = [d for d in dir_list if d is not None]
-                    if len(numeric_dirs) >= 2:
-                        dir0, dir1 = numeric_dirs[0], numeric_dirs[1]
-                    elif len(numeric_dirs) == 1:
-                        dir0, dir1 = numeric_dirs[0], None
+            if len(headsign_list) >= 2:
+                # Show side-by-side comparison when 2+ headsigns exist
+                h0, h1 = headsign_list[0], headsign_list[1]
+                arrivals_h0 = directions.get(h0, [])
+                arrivals_h1 = directions.get(h1, [])
                 
-                if dir0 is not None and dir1 is not None:
-                    arrivals_dir0 = directions.get(dir0, [])
-                    arrivals_dir1 = directions.get(dir1, [])
+                print(f"\n{h0}:".ljust(40) + f"{h1}:")
+                print("-" * 40 + "-" * 40)
+                
+                max_arrivals = max(len(arrivals_h0), len(arrivals_h1))
+                for i in range(max_arrivals):
+                    left = ""
+                    if i < len(arrivals_h0):
+                        local_time = arrivals_h0[i]["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        left = f"  {time_str}"
                     
-                    print(f"\nDirection {dir0}:".ljust(40) + f"Direction {dir1}:")
-                    print("-" * 40 + "-" * 40)
+                    right = ""
+                    if i < len(arrivals_h1):
+                        local_time = arrivals_h1[i]["time"].astimezone(LOCAL_TZ)
+                        time_str = local_time.strftime("%I:%M %p")
+                        right = f"  {time_str}"
                     
-                    max_arrivals = max(len(arrivals_dir0), len(arrivals_dir1))
-                    for i in range(max_arrivals):
-                        left = ""
-                        if i < len(arrivals_dir0):
-                            local_time = arrivals_dir0[i]["time"].astimezone(LOCAL_TZ)
-                            time_str = local_time.strftime("%I:%M %p")
-                            left = f"  {time_str}"
-                        
-                        right = ""
-                        if i < len(arrivals_dir1):
-                            local_time = arrivals_dir1[i]["time"].astimezone(LOCAL_TZ)
-                            time_str = local_time.strftime("%I:%M %p")
-                            right = f"  {time_str}"
-                        
-                        print(left.ljust(40) + right)
-                    
-                    print(f"\nTotal arrivals: {len(arrivals_dir0)}".ljust(40) + f"Total arrivals: {len(arrivals_dir1)}")
-            elif len([d for d in dir_list if d is not None]) == 1:
-                # Only one numeric direction available
-                direction = [d for d in dir_list if d is not None][0]
-                direction_arrivals = directions[direction]
-                print(f"\nDirection {direction}: ({len(direction_arrivals)} arrivals)")
+                    print(left.ljust(40) + right)
+                
+                print(f"\nTotal arrivals: {len(arrivals_h0)}".ljust(40) + f"Total arrivals: {len(arrivals_h1)}")
+                
+                # Store these for config suggestions
+                arrivals[route] = {
+                    'headsign0': h0,
+                    'count0': len(arrivals_h0),
+                    'headsign1': h1,
+                    'count1': len(arrivals_h1)
+                }
+            elif len(headsign_list) == 1:
+                # Only one headsign available
+                headsign = headsign_list[0]
+                headsign_arrivals = directions[headsign]
+                print(f"\nHeadsign: {headsign} ({len(headsign_arrivals)} arrivals)")
                 print("-" * 40)
                 
-                for arrival in direction_arrivals[:10]:
+                for arrival in headsign_arrivals[:10]:
                     local_time = arrival["time"].astimezone(LOCAL_TZ)
                     time_str = local_time.strftime("%I:%M %p")
                     print(f"  {time_str} (trip: {arrival['trip_id']})")
                 
-                if len(direction_arrivals) > 10:
-                    print(f"  ... and {len(direction_arrivals) - 10} more")
+                if len(headsign_arrivals) > 10:
+                    print(f"  ... and {len(headsign_arrivals) - 10} more")
+                    
+                arrivals[route] = {
+                    'headsign0': headsign,
+                    'count0': len(headsign_arrivals),
+                    'headsign1': None,
+                    'count1': 0
+                }
             else:
-                # No numeric directions - all trips might lack direction data
-                print(f"\nNo direction data available in static GTFS for this route.")
+                # No headsign data available
+                print(f"\nNo headsign data available for this route.")
+                arrivals[route] = {
+                    'headsign0': 'Unknown',
+                    'count0': len(arrivals),
+                    'headsign1': None,
+                    'count1': 0
+                }
             
-            # Show warnings about missing direction data
-            if has_none_direction and directions.get(None):
-                none_arrivals = directions[None]
-                print(f"\n⚠️  WARNING: {len(none_arrivals)} trips found WITHOUT direction data:")
-                print("   These trips may not be in the static GTFS file.")
-                print("   Trip IDs without direction data:")
-                for arrival in none_arrivals[:5]:
+            # Show warning about missing headsign data
+            if has_no_headsign and directions.get("Unknown"):
+                unknown_arrivals = directions["Unknown"]
+                print(f"\n⚠️  WARNING: {len(unknown_arrivals)} trips found WITHOUT headsign data:")
+                print("   Trip IDs without headsign data:")
+                for arrival in unknown_arrivals[:5]:
                     print(f"     - {arrival['trip_id']} ({arrival['time'].astimezone(LOCAL_TZ).strftime('%I:%M %p')})")
-                if len(none_arrivals) > 5:
-                    print(f"     ... and {len(none_arrivals) - 5} more")
+                if len(unknown_arrivals) > 5:
+                    print(f"     ... and {len(unknown_arrivals) - 5} more")
         
         # Summary for config
         print("\n" + "=" * 80)
         print("SUMMARY FOR CONFIG.TXT:")
         print("=" * 80)
+        print("Note: The system now uses trip HEADSIGN (destination) to differentiate directions")
+        print("      since the GRT static GTFS doesn't use direction_id to separate opposite directions.\n")
         
         for route in sorted(routes.keys()):
             route_arrivals = routes[route]
-            directions = {}
+            headsigns = {}
             for arrival in route_arrivals:
-                direction = arrival["direction_id"]
-                if direction not in directions:
-                    directions[direction] = []
-                directions[direction].append(arrival)
+                headsign = arrival.get("headsign", "Unknown")
+                if headsign not in headsigns:
+                    headsigns[headsign] = 0
+                headsigns[headsign] += 1
             
-            dir_list = sorted([d for d in directions.keys() if d is not None])
+            headsign_list = sorted([h for h in headsigns.keys() if h and h != "Unknown"])
             
             if route == DISPLAY1_ROUTE:
                 print(f"\nRoute {DISPLAY1_ROUTE} (DISPLAY1):")
-                print(f"  Available directions: {dir_list}")
-                if len(dir_list) > 0:
-                    print(f"  Set DISPLAY1_DIRECTION = {dir_list[0]} or {dir_list[1] if len(dir_list) > 1 else 'none'}")
+                if headsign_list:
+                    print(f"  Available destinations/directions:")
+                    for h in headsign_list:
+                        print(f"    - {h} ({headsigns[h]} arrivals)")
+                    print(f"  Recommendation: Set DISPLAY1_DIRECTION = (leave blank to show all)")
                 else:
-                    print(f"  No direction data available")
+                    print(f"  No headsign data available")
             elif route == DISPLAY2_ROUTE:
                 print(f"\nRoute {DISPLAY2_ROUTE} (DISPLAY2):")
-                print(f"  Available directions: {dir_list}")
-                if len(dir_list) > 0:
-                    print(f"  Set DISPLAY2_DIRECTION = {dir_list[0]} or {dir_list[1] if len(dir_list) > 1 else 'none'}")
+                if headsign_list:
+                    print(f"  Available destinations/directions:")
+                    for h in headsign_list:
+                        print(f"    - {h} ({headsigns[h]} arrivals)")
+                    print(f"  Recommendation: Set DISPLAY2_DIRECTION = (leave blank to show all)")
+                else:
+                    print(f"  No headsign data available")
                 else:
                     print(f"  No direction data available")
         
