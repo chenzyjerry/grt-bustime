@@ -98,7 +98,7 @@ except FileNotFoundError as e:
 
 # Extract configuration values
 API_URL = CONFIG.get("API_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1")
-STATIC_GTFS_URL = CONFIG.get("STATIC_GTFS_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/static/google_transit.zip")
+STATIC_GTFS_URL = CONFIG.get("STATIC_GTFS_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/staticfeeds/1")
 STOP_ID = str(CONFIG.get("STOP_ID", "2783"))
 LOCAL_TZ = ZoneInfo(CONFIG.get("LOCAL_TZ", "America/Toronto"))
 

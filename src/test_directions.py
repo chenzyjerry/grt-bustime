@@ -2,6 +2,7 @@
 """
 Test program to fetch and display all bus arrivals with their direction IDs.
 This helps determine which direction_id to use in the config file.
+Uses static GTFS data to get direction information.
 """
 
 import requests
@@ -15,6 +16,9 @@ import sys
 import os
 from zoneinfo import ZoneInfo
 from pathlib import Path
+import csv
+import zipfile
+import io
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -74,6 +78,47 @@ def get_api_session():
     return session
 
 
+def load_static_gtfs_directions(static_gtfs_url):
+    """
+    Load trip-to-direction mapping from static GTFS data.
+    Returns a dictionary mapping trip_id to direction_id.
+    """
+    trip_to_direction = {}
+    
+    try:
+        print("[INFO] Loading static GTFS data for direction mapping...")
+        session = get_api_session()
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        # Download the static GTFS zip file
+        response = session.get(static_gtfs_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        # Extract and parse the trips.txt file
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zip_file:
+            # Read trips.txt to get trip_id -> direction_id mapping
+            with zip_file.open('trips.txt') as f:
+                reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8'))
+                for row in reader:
+                    trip_id = row.get('trip_id')
+                    direction_id = row.get('direction_id')
+                    if trip_id and direction_id is not None:
+                        try:
+                            trip_to_direction[trip_id] = int(direction_id)
+                        except (ValueError, TypeError):
+                            pass  # Skip invalid direction IDs
+        
+        print(f"[INFO] Loaded {len(trip_to_direction)} trip-direction mappings from static GTFS data.\n")
+        return trip_to_direction
+    
+    except Exception as e:
+        print(f"[ERROR] Failed to load static GTFS data: {e}")
+        return {}
+
+
 def test_directions():
     """Fetch and display all bus arrivals with their direction IDs."""
     try:
@@ -85,10 +130,14 @@ def test_directions():
     
     # Extract configuration
     API_URL = config.get("API_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1")
+    STATIC_GTFS_URL = config.get("STATIC_GTFS_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/staticfeeds/1")
     STOP_ID = str(config.get("STOP_ID", "2783"))
     LOCAL_TZ = ZoneInfo(config.get("LOCAL_TZ", "America/Toronto"))
     DISPLAY1_ROUTE = str(config.get("DISPLAY1_ROUTE", "12"))
     DISPLAY2_ROUTE = str(config.get("DISPLAY2_ROUTE", "19"))
+    
+    # Load static GTFS data to get direction mappings
+    trip_to_direction = load_static_gtfs_directions(STATIC_GTFS_URL)
     
     print(f"[INFO] Fetching bus data for stop {STOP_ID}...")
     print(f"[INFO] Looking for routes: {DISPLAY1_ROUTE}, {DISPLAY2_ROUTE}\n")
@@ -126,7 +175,8 @@ def test_directions():
                         arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                         route_id = trip_update.trip.route_id
                         trip_id = trip_update.trip.trip_id
-                        direction_id = trip_update.trip.direction_id if trip_update.trip.HasField("direction_id") else None
+                        # Get direction_id from static GTFS data mapping
+                        direction_id = trip_to_direction.get(trip_id)
                         
                         all_arrivals.append({
                             "time": arrival_time,
