@@ -346,8 +346,6 @@ def test_directions():
                     print(f"  Recommendation: Set DISPLAY2_DIRECTION = (leave blank to show all)")
                 else:
                     print(f"  No headsign data available")
-                else:
-                    print(f"  No direction data available")
         
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data from API: {e}")
