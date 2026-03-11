@@ -223,7 +223,8 @@ def test_directions():
             # Get all unique direction values (sorted)
             dir_list = sorted([d for d in directions.keys() if d is not None])
             
-            if len(dir_list) == 2:
+            if len(dir_list) >= 2:
+                # Show side-by-side comparison when 2+ directions exist
                 dir0, dir1 = dir_list[0], dir_list[1]
                 arrivals_dir0 = directions.get(dir0, [])
                 arrivals_dir1 = directions.get(dir1, [])
@@ -248,20 +249,24 @@ def test_directions():
                     print(left.ljust(40) + right)
                 
                 print(f"\nTotal arrivals: {len(arrivals_dir0)}".ljust(40) + f"Total arrivals: {len(arrivals_dir1)}")
+            elif len(dir_list) == 1:
+                # Only one direction available right now
+                direction = dir_list[0]
+                direction_arrivals = directions[direction]
+                print(f"\nDirection {direction}: ({len(direction_arrivals)} arrivals)")
+                print("Note: Only one direction is available at this time.")
+                print("-" * 40)
+                
+                for arrival in direction_arrivals[:10]:
+                    local_time = arrival["time"].astimezone(LOCAL_TZ)
+                    time_str = local_time.strftime("%I:%M %p")
+                    print(f"  {time_str} (trip: {arrival['trip_id']})")
+                
+                if len(direction_arrivals) > 10:
+                    print(f"  ... and {len(direction_arrivals) - 10} more")
             else:
-                # Fallback to original display if not exactly 2 directions
-                for direction in sorted(directions.keys(), key=lambda x: (x is None, x)):
-                    direction_arrivals = directions[direction]
-                    direction_str = f"Direction {direction}" if direction is not None else "Direction [NONE]"
-                    print(f"\n{direction_str} ({len(direction_arrivals)} arrivals):")
-                    
-                    for arrival in direction_arrivals[:5]:
-                        local_time = arrival["time"].astimezone(LOCAL_TZ)
-                        time_str = local_time.strftime("%I:%M %p")
-                        print(f"  {time_str} (trip: {arrival['trip_id']})")
-                    
-                    if len(direction_arrivals) > 5:
-                        print(f"  ... and {len(direction_arrivals) - 5} more")
+                # No directions found
+                print(f"\nNo direction data available for this route.")
         
         # Summary for config
         print("\n" + "=" * 80)
