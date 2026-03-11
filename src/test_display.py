@@ -8,10 +8,10 @@ import datetime
 from tm1637 import TM1637
 
 # Display pins
-DISPLAY1_CLK = 17
-DISPLAY1_DIO = 22
-DISPLAY2_CLK = 18
-DISPLAY2_DIO = 27
+DISPLAY1_CLK = 27
+DISPLAY1_DIO = 17
+DISPLAY2_CLK = 24
+DISPLAY2_DIO = 23
 
 print("[TEST] Initializing displays...")
 try:
@@ -24,7 +24,26 @@ try:
 except Exception as e:
     print(f"[ERROR] Failed to initialize: {e}")
     exit(1)
+# Test brightness levels (0-7)
+print("\n[TEST] Testing all brightness levels (0-7)...")
+try:
+    display1.show("1234")
+    display2.show("5678")
+    
+    for brightness_level in range(8):
+        print(f"\n[TEST] Setting brightness to {brightness_level}")
+        display1.brightness(brightness_level)
+        display2.brightness(brightness_level)
+        print(f"[SUCCESS] Brightness set to {brightness_level} - observe the displays")
+        time.sleep(2)
+    
+    print("\n[TEST] Brightness test complete!")
+except Exception as e:
+    print(f"[ERROR] Failed during brightness test: {e}")
 
+# Reset to maximum brightness for remaining tests
+display1.brightness(7)
+display2.brightness(7)
 # Test sequence
 test_sequence = [
     ("1234", "5678"),
