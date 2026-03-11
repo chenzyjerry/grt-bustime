@@ -22,7 +22,7 @@ DISPLAY1_ROUTE = 12
 # Headsign (destination/direction) for display 1 route (leave empty to show all destinations)
 # This filters arrivals by their destination name (e.g., "Downtown", "Waterloo").
 # Run test_directions.py to see available headsigns for your routes.
-DISPLAY1_HEADSIGN = 
+DISPLAY1_HEADSIGN = Fairway Station
 
 # GPIO pin for display 1 clock signal
 DISPLAY1_CLK = 27
@@ -37,7 +37,7 @@ DISPLAY2_ROUTE = 19
 # Headsign (destination/direction) for display 2 route (leave empty to show all destinations)
 # This filters arrivals by their destination name (e.g., "Downtown", "Waterloo").
 # Run test_directions.py to see available headsigns for your routes.
-DISPLAY2_HEADSIGN = 
+DISPLAY2_HEADSIGN =  University of Waterloo Station
 
 # GPIO pin for display 2 clock signal
 DISPLAY2_CLK = 24
