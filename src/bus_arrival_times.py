@@ -505,6 +505,14 @@ def main():
         while True:
             current_time = time.time()
             
+            # Update brightness based on sunset time (check once per minute)
+            # This runs early so it executes regardless of arrival status
+            time_since_last_check = current_time - last_brightness_check_time
+            if time_since_last_check >= 60:
+                print(f"[DEBUG] Checking brightness (last check was {time_since_last_check:.1f}s ago)")
+                display_manager.update_brightness_for_time()
+                last_brightness_check_time = current_time
+            
             # Fetch new arrivals every 3 minutes, on first run, or when button is pressed
             should_refresh = (
                 current_time - last_fetch_time >= refresh_interval or 
@@ -588,13 +596,6 @@ def main():
             
             # Check sensor for button press
             sensor_manager.check_sensor()
-            
-            # Update brightness based on sunset time (check once per minute)
-            time_since_last_check = current_time - last_brightness_check_time
-            if time_since_last_check >= 60:
-                print(f"[DEBUG] Checking brightness (last check was {time_since_last_check:.1f}s ago)")
-                display_manager.update_brightness_for_time()
-                last_brightness_check_time = current_time
             
             # Sleep without printing every iteration
             time.sleep(1)
