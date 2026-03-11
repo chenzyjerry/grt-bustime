@@ -2,6 +2,7 @@
 """
 Fetch the next two bus arrival times for GRT stop 2783.
 Uses the GTFS Realtime API provided by Region of Waterloo.
+Direction information is obtained from the static GTFS data.
 """
 
 import requests
@@ -16,6 +17,9 @@ import sys
 import os
 from zoneinfo import ZoneInfo
 from pathlib import Path
+import csv
+import zipfile
+import io
 try:
     from astral import Observer
     from astral.sun import sun
@@ -94,17 +98,18 @@ except FileNotFoundError as e:
 
 # Extract configuration values
 API_URL = CONFIG.get("API_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1")
+STATIC_GTFS_URL = CONFIG.get("STATIC_GTFS_URL", "https://webapps.regionofwaterloo.ca/api/grt-routes/static/google_transit.zip")
 STOP_ID = str(CONFIG.get("STOP_ID", "2783"))
 LOCAL_TZ = ZoneInfo(CONFIG.get("LOCAL_TZ", "America/Toronto"))
 
 # TM1637 Display Configuration
 DISPLAY1_ROUTE = str(CONFIG.get("DISPLAY1_ROUTE", "12"))
-DISPLAY1_DIRECTION = int(CONFIG.get("DISPLAY1_DIRECTION", 0))
+DISPLAY1_DIRECTION = CONFIG.get("DISPLAY1_DIRECTION", "")
 DISPLAY1_CLK = int(CONFIG.get("DISPLAY1_CLK", 27))
 DISPLAY1_DIO = int(CONFIG.get("DISPLAY1_DIO", 17))
 
 DISPLAY2_ROUTE = str(CONFIG.get("DISPLAY2_ROUTE", "19"))
-DISPLAY2_DIRECTION = int(CONFIG.get("DISPLAY2_DIRECTION", 0))
+DISPLAY2_DIRECTION = CONFIG.get("DISPLAY2_DIRECTION", "")
 DISPLAY2_CLK = int(CONFIG.get("DISPLAY2_CLK", 24))
 DISPLAY2_DIO = int(CONFIG.get("DISPLAY2_DIO", 23))
 
@@ -123,14 +128,30 @@ LOCATION_LONGITUDE = float(CONFIG.get("LOCATION_LONGITUDE", -80.4925))
 # Refresh interval in seconds
 REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
 
+# Convert direction configs to integers if they're not empty
+_display1_direction = None
+_display2_direction = None
+
+if DISPLAY1_DIRECTION and str(DISPLAY1_DIRECTION).strip():
+    try:
+        _display1_direction = int(DISPLAY1_DIRECTION)
+    except (ValueError, TypeError):
+        print(f"[WARNING] Invalid DISPLAY1_DIRECTION value: {DISPLAY1_DIRECTION}. Ignoring.")
+
+if DISPLAY2_DIRECTION and str(DISPLAY2_DIRECTION).strip():
+    try:
+        _display2_direction = int(DISPLAY2_DIRECTION)
+    except (ValueError, TypeError):
+        print(f"[WARNING] Invalid DISPLAY2_DIRECTION value: {DISPLAY2_DIRECTION}. Ignoring.")
+
+# Map routes to their desired directions (None means accept all directions)
+ROUTE_DIRECTIONS = {
+    DISPLAY1_ROUTE: _display1_direction,
+    DISPLAY2_ROUTE: _display2_direction,
+}
+
 # Routes set for filtering (created once to avoid recreation on every fetch)
 DESIRED_ROUTES = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
-
-# Route to direction mapping for filtering
-ROUTE_DIRECTIONS = {
-    DISPLAY1_ROUTE: DISPLAY1_DIRECTION,
-    DISPLAY2_ROUTE: DISPLAY2_DIRECTION
-}
 
 # Observer for sun calculations (cached to avoid recreation)
 _OBSERVER = None
@@ -143,8 +164,14 @@ _API_SESSION = None
 # Log loaded configuration on startup
 print("[INFO] Configuration loaded from config.txt:")
 print(f"[INFO]   Stop ID: {STOP_ID}")
-print(f"[INFO]   Route 1: {DISPLAY1_ROUTE} Direction {DISPLAY1_DIRECTION} (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
-print(f"[INFO]   Route 2: {DISPLAY2_ROUTE} Direction {DISPLAY2_DIRECTION} (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
+print(f"[INFO]   Route 1: {DISPLAY1_ROUTE}", end="")
+if _display1_direction is not None:
+    print(f" (direction {_display1_direction})", end="")
+print(f" (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
+print(f"[INFO]   Route 2: {DISPLAY2_ROUTE}", end="")
+if _display2_direction is not None:
+    print(f" (direction {_display2_direction})", end="")
+print(f" (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
 print(f"[INFO]   Refresh interval: {REFRESH_INTERVAL} seconds")
 if ENABLE_SUNSET_DIMMING:
     print(f"[INFO]   Sunset dimming: enabled (day: {DAY_BRIGHTNESS}, night: {NIGHT_BRIGHTNESS})")
@@ -191,6 +218,67 @@ def get_sunrise_time(date=None):
     except Exception as e:
         print(f"[ERROR] Failed to calculate sunrise time: {e}")
         return None
+
+
+def load_static_gtfs_data():
+    """
+    Load and cache static GTFS data to build a mapping of trip_id to direction_id.
+    This is used to filter realtime arrivals by direction.
+    Returns a dictionary mapping trip_id to direction_id.
+    """
+    trip_to_direction = {}
+    
+    try:
+        print("[INFO] Loading static GTFS data for direction mapping...")
+        session = requests.Session()
+        session.mount("https://", DH_KeyAdapter())
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        # Download the static GTFS zip file
+        response = session.get(STATIC_GTFS_URL, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        # Extract and parse the trips.txt file
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zip_file:
+            # Read trips.txt to get trip_id -> direction_id mapping
+            with zip_file.open('trips.txt') as f:
+                reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8'))
+                for row in reader:
+                    trip_id = row.get('trip_id')
+                    direction_id = row.get('direction_id')
+                    if trip_id and direction_id is not None:
+                        try:
+                            trip_to_direction[trip_id] = int(direction_id)
+                        except (ValueError, TypeError):
+                            pass  # Skip invalid direction IDs
+        
+        print(f"[INFO] Loaded {len(trip_to_direction)} trip-direction mappings from static GTFS data.")
+        return trip_to_direction
+    
+    except Exception as e:
+        print(f"[ERROR] Failed to load static GTFS data: {e}")
+        print("[WARNING] Direction filtering will be disabled.")
+        return {}
+
+
+# Global cache for trip-to-direction mapping
+_TRIP_TO_DIRECTION = None
+
+def get_trip_direction(trip_id):
+    """
+    Get the direction_id for a given trip_id using cached static GTFS data.
+    Returns the direction_id (as int) or None if not found.
+    Loads the data on first call.
+    """
+    global _TRIP_TO_DIRECTION
+    
+    if _TRIP_TO_DIRECTION is None:
+        _TRIP_TO_DIRECTION = load_static_gtfs_data()
+    
+    return _TRIP_TO_DIRECTION.get(trip_id)
 
 
 class DH_KeyAdapter(HTTPAdapter):
@@ -454,8 +542,9 @@ def fetch_bus_arrivals(debug=False):
                             arrival_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                             route_id = trip_update.trip.route_id
                             trip_id = trip_update.trip.trip_id
-                            # Get direction_id if available
-                            direction_id = trip_update.trip.direction_id if trip_update.trip.HasField("direction_id") else None
+                            
+                            # Get direction_id from static GTFS data using trip_id
+                            direction_id = get_trip_direction(trip_id)
 
                             arrivals.append({
                                 "time": arrival_time,
@@ -469,7 +558,8 @@ def fetch_bus_arrivals(debug=False):
                 print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
                 for arr in arrivals[:3]:  # Show first 3 arrivals
                     local_time = arr["time"].astimezone(LOCAL_TZ)
-                    print(f"  Route {arr['route_id']}, Direction {arr['direction_id']}: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']})")
+                    direction_str = f", direction {arr['direction_id']}" if arr['direction_id'] is not None else ""
+                    print(f"  Route {arr['route_id']}: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']}{direction_str})")
 
             # Sort by arrival time
             arrivals.sort(key=lambda x: x["timestamp"])
@@ -479,18 +569,20 @@ def fetch_bus_arrivals(debug=False):
             future_arrivals = [a for a in arrivals if a["timestamp"] > now_timestamp]
             
             # Filter to only include arrivals for the desired routes and directions
-            filtered_arrivals = [
-                a for a in future_arrivals 
-                if a["route_id"] in DESIRED_ROUTES and 
-                   (a["direction_id"] is None or a["direction_id"] == ROUTE_DIRECTIONS.get(a["route_id"]))
-            ]
+            filtered_arrivals = []
+            for a in future_arrivals:
+                if a["route_id"] in DESIRED_ROUTES:
+                    # Check if direction filtering is required for this route
+                    desired_direction = ROUTE_DIRECTIONS.get(a["route_id"])
+                    if desired_direction is None or a["direction_id"] == desired_direction:
+                        filtered_arrivals.append(a)
             
             if debug and len(arrivals) > 0:
                 now = datetime.now(timezone.utc)
                 now_local = now.astimezone(LOCAL_TZ)
                 print(f"Current time - UTC: {now}, Local: {now_local}")
                 print(f"Future arrivals (all routes): {len(future_arrivals)}")
-                print(f"Future arrivals (desired routes with directions): {len(filtered_arrivals)}")
+                print(f"Future arrivals (desired routes with direction filtering): {len(filtered_arrivals)}")
             
             return filtered_arrivals
             
@@ -593,7 +685,8 @@ def main():
                         local_time = arrival["time"].astimezone(LOCAL_TZ)
                         time_str = local_time.strftime("%I:%M %p")
                         route_id = arrival["route_id"]
-                        print(f"  Route {route_id}: {time_str}")
+                        direction_str = f" (dir {arrival['direction_id']})" if arrival['direction_id'] is not None else ""
+                        print(f"  Route {route_id}: {time_str}{direction_str}")
             
             # Check if any arrivals have passed
             future_arrivals = [a for a in arrivals if a["time"] > datetime.now(timezone.utc)]
