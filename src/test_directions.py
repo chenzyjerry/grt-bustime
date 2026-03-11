@@ -220,41 +220,51 @@ def test_directions():
                     directions[direction] = []
                 directions[direction].append(arrival)
             
-            # Get all unique direction values (sorted)
-            dir_list = sorted([d for d in directions.keys() if d is not None])
+            # Get all unique direction values (sorted, including None)
+            dir_list = sorted([d for d in directions.keys()])
+            
+            # Check if any trips don't have direction data
+            has_none_direction = None in directions
             
             if len(dir_list) >= 2:
                 # Show side-by-side comparison when 2+ directions exist
-                dir0, dir1 = dir_list[0], dir_list[1]
-                arrivals_dir0 = directions.get(dir0, [])
-                arrivals_dir1 = directions.get(dir1, [])
+                dir0, dir1 = dir_list[0] if dir_list[0] is not None else dir_list[1], None if dir_list[0] is not None else dir_list[0]
+                if None in dir_list:
+                    numeric_dirs = [d for d in dir_list if d is not None]
+                    if len(numeric_dirs) >= 2:
+                        dir0, dir1 = numeric_dirs[0], numeric_dirs[1]
+                    elif len(numeric_dirs) == 1:
+                        dir0, dir1 = numeric_dirs[0], None
                 
-                print(f"\nDirection {dir0}:".ljust(40) + f"Direction {dir1}:")
-                print("-" * 40 + "-" * 40)
-                
-                max_arrivals = max(len(arrivals_dir0), len(arrivals_dir1))
-                for i in range(max_arrivals):
-                    left = ""
-                    if i < len(arrivals_dir0):
-                        local_time = arrivals_dir0[i]["time"].astimezone(LOCAL_TZ)
-                        time_str = local_time.strftime("%I:%M %p")
-                        left = f"  {time_str}"
+                if dir0 is not None and dir1 is not None:
+                    arrivals_dir0 = directions.get(dir0, [])
+                    arrivals_dir1 = directions.get(dir1, [])
                     
-                    right = ""
-                    if i < len(arrivals_dir1):
-                        local_time = arrivals_dir1[i]["time"].astimezone(LOCAL_TZ)
-                        time_str = local_time.strftime("%I:%M %p")
-                        right = f"  {time_str}"
+                    print(f"\nDirection {dir0}:".ljust(40) + f"Direction {dir1}:")
+                    print("-" * 40 + "-" * 40)
                     
-                    print(left.ljust(40) + right)
-                
-                print(f"\nTotal arrivals: {len(arrivals_dir0)}".ljust(40) + f"Total arrivals: {len(arrivals_dir1)}")
-            elif len(dir_list) == 1:
-                # Only one direction available right now
-                direction = dir_list[0]
+                    max_arrivals = max(len(arrivals_dir0), len(arrivals_dir1))
+                    for i in range(max_arrivals):
+                        left = ""
+                        if i < len(arrivals_dir0):
+                            local_time = arrivals_dir0[i]["time"].astimezone(LOCAL_TZ)
+                            time_str = local_time.strftime("%I:%M %p")
+                            left = f"  {time_str}"
+                        
+                        right = ""
+                        if i < len(arrivals_dir1):
+                            local_time = arrivals_dir1[i]["time"].astimezone(LOCAL_TZ)
+                            time_str = local_time.strftime("%I:%M %p")
+                            right = f"  {time_str}"
+                        
+                        print(left.ljust(40) + right)
+                    
+                    print(f"\nTotal arrivals: {len(arrivals_dir0)}".ljust(40) + f"Total arrivals: {len(arrivals_dir1)}")
+            elif len([d for d in dir_list if d is not None]) == 1:
+                # Only one numeric direction available
+                direction = [d for d in dir_list if d is not None][0]
                 direction_arrivals = directions[direction]
                 print(f"\nDirection {direction}: ({len(direction_arrivals)} arrivals)")
-                print("Note: Only one direction is available at this time.")
                 print("-" * 40)
                 
                 for arrival in direction_arrivals[:10]:
@@ -265,8 +275,19 @@ def test_directions():
                 if len(direction_arrivals) > 10:
                     print(f"  ... and {len(direction_arrivals) - 10} more")
             else:
-                # No directions found
-                print(f"\nNo direction data available for this route.")
+                # No numeric directions - all trips might lack direction data
+                print(f"\nNo direction data available in static GTFS for this route.")
+            
+            # Show warnings about missing direction data
+            if has_none_direction and directions.get(None):
+                none_arrivals = directions[None]
+                print(f"\n⚠️  WARNING: {len(none_arrivals)} trips found WITHOUT direction data:")
+                print("   These trips may not be in the static GTFS file.")
+                print("   Trip IDs without direction data:")
+                for arrival in none_arrivals[:5]:
+                    print(f"     - {arrival['trip_id']} ({arrival['time'].astimezone(LOCAL_TZ).strftime('%I:%M %p')})")
+                if len(none_arrivals) > 5:
+                    print(f"     ... and {len(none_arrivals) - 5} more")
         
         # Summary for config
         print("\n" + "=" * 80)
