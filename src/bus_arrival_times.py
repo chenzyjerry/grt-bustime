@@ -439,6 +439,7 @@ def main():
     """Main entry point with continuous countdown and periodic refresh."""
     refresh_interval = REFRESH_INTERVAL  # Read from config file
     last_fetch_time = 0
+    last_brightness_check_time = 0  # Track when we last checked brightness
     arrivals = []
     debug_mode = "--debug" in sys.argv
     display_manager = TM1637DisplayManager()
@@ -541,9 +542,10 @@ def main():
             # Check sensor for button press
             sensor_manager.check_sensor()
             
-            # Update brightness based on sunset time (check once per minute is enough)
-            if int(current_time) % 60 == 0:
+            # Update brightness based on sunset time (check once per minute)
+            if current_time - last_brightness_check_time >= 60:
                 display_manager.update_brightness_for_time()
+                last_brightness_check_time = current_time
             
             # Sleep without printing every iteration
             time.sleep(1)
