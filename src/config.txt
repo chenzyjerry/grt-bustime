@@ -44,7 +44,7 @@ ENABLE_SUNSET_DIMMING = true
 DAY_BRIGHTNESS = 7
 
 # Display brightness after sunset (0-7, where 7 is brightest)
-NIGHT_BRIGHTNESS = 2
+NIGHT_BRIGHTNESS = 1
 
 # ==================== Location Configuration ====================
 # Latitude of your location (for sunset calculation)
