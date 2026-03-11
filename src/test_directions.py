@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Test program to fetch and display all bus arrivals with their direction IDs.
-This helps determine which direction_id to use in the config file.
-Uses static GTFS data to get direction information.
+Test program to fetch and display all bus arrivals with their headsigns (destinations).
+This helps determine which headsign to use in the config file.
+Uses static GTFS data to get destination/direction information.
 """
 
 import requests
@@ -125,7 +125,7 @@ def load_static_gtfs_directions(static_gtfs_url):
 
 
 def test_directions():
-    """Fetch and display all bus arrivals with their direction IDs."""
+    """Fetch and display all bus arrivals with their headsigns (destinations)."""
     try:
         config = load_config()
     except FileNotFoundError as e:
@@ -310,19 +310,25 @@ def test_directions():
             if route == DISPLAY1_ROUTE:
                 print(f"\nRoute {DISPLAY1_ROUTE} (DISPLAY1):")
                 if headsign_list:
-                    print(f"  Available destinations/directions:")
+                    print(f"  Available destinations:")
                     for h in headsign_list:
                         print(f"    - {h} ({headsigns[h]} arrivals)")
-                    print(f"  Recommendation: Set DISPLAY1_DIRECTION = (leave blank to show all)")
+                    print(f"  Example: Set DISPLAY1_HEADSIGN = {headsign_list[0]}")
+                    if len(headsign_list) > 1:
+                        print(f"           or DISPLAY1_HEADSIGN = {headsign_list[1]}")
+                    print(f"  Leave blank to show all destinations")
                 else:
                     print(f"  No headsign data available")
             elif route == DISPLAY2_ROUTE:
                 print(f"\nRoute {DISPLAY2_ROUTE} (DISPLAY2):")
                 if headsign_list:
-                    print(f"  Available destinations/directions:")
+                    print(f"  Available destinations:")
                     for h in headsign_list:
                         print(f"    - {h} ({headsigns[h]} arrivals)")
-                    print(f"  Recommendation: Set DISPLAY2_DIRECTION = (leave blank to show all)")
+                    print(f"  Example: Set DISPLAY2_HEADSIGN = {headsign_list[0]}")
+                    if len(headsign_list) > 1:
+                        print(f"           or DISPLAY2_HEADSIGN = {headsign_list[1]}")
+                    print(f"  Leave blank to show all destinations")
                 else:
                     print(f"  No headsign data available")
         

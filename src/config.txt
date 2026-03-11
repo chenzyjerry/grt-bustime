@@ -6,7 +6,7 @@
 # API endpoint to fetch real-time bus data
 API_URL = https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1
 
-# URL for static GTFS data (used to get direction IDs for trips)
+# URL for static GTFS data (used to get headsigns/destinations for trips)
 STATIC_GTFS_URL = https://webapps.regionofwaterloo.ca/api/grt-routes/api/staticfeeds/1
 
 # Bus stop ID where you want to monitor arrivals
@@ -19,9 +19,10 @@ LOCAL_TZ = America/Toronto
 # Route number to display on display 1
 DISPLAY1_ROUTE = 12
 
-# Direction ID for display 1 route (leave empty to show all directions)
-# Use test_directions.py to find the direction IDs for your routes
-DISPLAY1_DIRECTION = 
+# Headsign (destination/direction) for display 1 route (leave empty to show all destinations)
+# This filters arrivals by their destination name (e.g., "Downtown", "Waterloo").
+# Run test_directions.py to see available headsigns for your routes.
+DISPLAY1_HEADSIGN = 
 
 # GPIO pin for display 1 clock signal
 DISPLAY1_CLK = 27
@@ -33,9 +34,10 @@ DISPLAY1_DIO = 17
 # Route number to display on display 2
 DISPLAY2_ROUTE = 19
 
-# Direction ID for display 2 route (leave empty to show all directions)
-# Use test_directions.py to find the direction IDs for your routes
-DISPLAY2_DIRECTION = 
+# Headsign (destination/direction) for display 2 route (leave empty to show all destinations)
+# This filters arrivals by their destination name (e.g., "Downtown", "Waterloo").
+# Run test_directions.py to see available headsigns for your routes.
+DISPLAY2_HEADSIGN = 
 
 # GPIO pin for display 2 clock signal
 DISPLAY2_CLK = 24

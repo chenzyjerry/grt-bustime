@@ -104,12 +104,12 @@ LOCAL_TZ = ZoneInfo(CONFIG.get("LOCAL_TZ", "America/Toronto"))
 
 # TM1637 Display Configuration
 DISPLAY1_ROUTE = str(CONFIG.get("DISPLAY1_ROUTE", "12"))
-DISPLAY1_DIRECTION = CONFIG.get("DISPLAY1_DIRECTION", "")
+DISPLAY1_HEADSIGN = CONFIG.get("DISPLAY1_HEADSIGN", "")
 DISPLAY1_CLK = int(CONFIG.get("DISPLAY1_CLK", 27))
 DISPLAY1_DIO = int(CONFIG.get("DISPLAY1_DIO", 17))
 
 DISPLAY2_ROUTE = str(CONFIG.get("DISPLAY2_ROUTE", "19"))
-DISPLAY2_DIRECTION = CONFIG.get("DISPLAY2_DIRECTION", "")
+DISPLAY2_HEADSIGN = CONFIG.get("DISPLAY2_HEADSIGN", "")
 DISPLAY2_CLK = int(CONFIG.get("DISPLAY2_CLK", 24))
 DISPLAY2_DIO = int(CONFIG.get("DISPLAY2_DIO", 23))
 
@@ -128,26 +128,14 @@ LOCATION_LONGITUDE = float(CONFIG.get("LOCATION_LONGITUDE", -80.4925))
 # Refresh interval in seconds
 REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
 
-# Convert direction configs to integers if they're not empty
-_display1_direction = None
-_display2_direction = None
+# Store headsigns for filtering (empty string means accept all headsigns)
+_display1_headsign = DISPLAY1_HEADSIGN.strip() if DISPLAY1_HEADSIGN else ""
+_display2_headsign = DISPLAY2_HEADSIGN.strip() if DISPLAY2_HEADSIGN else ""
 
-if DISPLAY1_DIRECTION and str(DISPLAY1_DIRECTION).strip():
-    try:
-        _display1_direction = int(DISPLAY1_DIRECTION)
-    except (ValueError, TypeError):
-        print(f"[WARNING] Invalid DISPLAY1_DIRECTION value: {DISPLAY1_DIRECTION}. Ignoring.")
-
-if DISPLAY2_DIRECTION and str(DISPLAY2_DIRECTION).strip():
-    try:
-        _display2_direction = int(DISPLAY2_DIRECTION)
-    except (ValueError, TypeError):
-        print(f"[WARNING] Invalid DISPLAY2_DIRECTION value: {DISPLAY2_DIRECTION}. Ignoring.")
-
-# Map routes to their desired directions (None means accept all directions)
-ROUTE_DIRECTIONS = {
-    DISPLAY1_ROUTE: _display1_direction,
-    DISPLAY2_ROUTE: _display2_direction,
+# Map routes to their desired headsigns (empty string means accept all headsigns)
+ROUTE_HEADSIGNS = {
+    DISPLAY1_ROUTE: _display1_headsign,
+    DISPLAY2_ROUTE: _display2_headsign,
 }
 
 # Routes set for filtering (created once to avoid recreation on every fetch)
@@ -165,12 +153,12 @@ _API_SESSION = None
 print("[INFO] Configuration loaded from config.txt:")
 print(f"[INFO]   Stop ID: {STOP_ID}")
 print(f"[INFO]   Route 1: {DISPLAY1_ROUTE}", end="")
-if _display1_direction is not None:
-    print(f" (direction {_display1_direction})", end="")
+if _display1_headsign:
+    print(f" (headsign: {_display1_headsign})", end="")
 print(f" (GPIO {DISPLAY1_CLK}/{DISPLAY1_DIO})")
 print(f"[INFO]   Route 2: {DISPLAY2_ROUTE}", end="")
-if _display2_direction is not None:
-    print(f" (direction {_display2_direction})", end="")
+if _display2_headsign:
+    print(f" (headsign: {_display2_headsign})", end="")
 print(f" (GPIO {DISPLAY2_CLK}/{DISPLAY2_DIO})")
 print(f"[INFO]   Refresh interval: {REFRESH_INTERVAL} seconds")
 if ENABLE_SUNSET_DIMMING:
@@ -222,14 +210,14 @@ def get_sunrise_time(date=None):
 
 def load_static_gtfs_data():
     """
-    Load and cache static GTFS data to build a mapping of trip_id to direction_id.
-    This is used to filter realtime arrivals by direction.
-    Returns a dictionary mapping trip_id to direction_id.
+    Load and cache static GTFS data to build a mapping of trip_id to headsign.
+    This is used to filter realtime arrivals by destination/direction.
+    Returns a dictionary mapping trip_id to headsign.
     """
-    trip_to_direction = {}
+    trip_to_headsign = {}
     
     try:
-        print("[INFO] Loading static GTFS data for direction mapping...")
+        print("[INFO] Loading static GTFS data for headsign mapping...")
         session = requests.Session()
         session.mount("https://", DH_KeyAdapter())
         
@@ -243,42 +231,39 @@ def load_static_gtfs_data():
         
         # Extract and parse the trips.txt file
         with zipfile.ZipFile(io.BytesIO(response.content)) as zip_file:
-            # Read trips.txt to get trip_id -> direction_id mapping
+            # Read trips.txt to get trip_id -> headsign mapping
             with zip_file.open('trips.txt') as f:
                 reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8'))
                 for row in reader:
                     trip_id = row.get('trip_id')
-                    direction_id = row.get('direction_id')
-                    if trip_id and direction_id is not None:
-                        try:
-                            trip_to_direction[trip_id] = int(direction_id)
-                        except (ValueError, TypeError):
-                            pass  # Skip invalid direction IDs
+                    headsign = row.get('trip_headsign', '')
+                    if trip_id:
+                        trip_to_headsign[trip_id] = headsign
         
-        print(f"[INFO] Loaded {len(trip_to_direction)} trip-direction mappings from static GTFS data.")
-        return trip_to_direction
+        print(f"[INFO] Loaded {len(trip_to_headsign)} trip-headsign mappings from static GTFS data.")
+        return trip_to_headsign
     
     except Exception as e:
         print(f"[ERROR] Failed to load static GTFS data: {e}")
-        print("[WARNING] Direction filtering will be disabled.")
+        print("[WARNING] Headsign filtering will be disabled.")
         return {}
 
 
-# Global cache for trip-to-direction mapping
-_TRIP_TO_DIRECTION = None
+# Global cache for trip-to-headsign mapping
+_TRIP_TO_HEADSIGN = None
 
-def get_trip_direction(trip_id):
+def get_trip_headsign(trip_id):
     """
-    Get the direction_id for a given trip_id using cached static GTFS data.
-    Returns the direction_id (as int) or None if not found.
+    Get the headsign for a given trip_id using cached static GTFS data.
+    Returns the headsign (as string) or empty string if not found.
     Loads the data on first call.
     """
-    global _TRIP_TO_DIRECTION
+    global _TRIP_TO_HEADSIGN
     
-    if _TRIP_TO_DIRECTION is None:
-        _TRIP_TO_DIRECTION = load_static_gtfs_data()
+    if _TRIP_TO_HEADSIGN is None:
+        _TRIP_TO_HEADSIGN = load_static_gtfs_data()
     
-    return _TRIP_TO_DIRECTION.get(trip_id)
+    return _TRIP_TO_HEADSIGN.get(trip_id, "")
 
 
 class DH_KeyAdapter(HTTPAdapter):
@@ -543,14 +528,14 @@ def fetch_bus_arrivals(debug=False):
                             route_id = trip_update.trip.route_id
                             trip_id = trip_update.trip.trip_id
                             
-                            # Get direction_id from static GTFS data using trip_id
-                            direction_id = get_trip_direction(trip_id)
+                            # Get headsign from static GTFS data using trip_id
+                            headsign = get_trip_headsign(trip_id)
 
                             arrivals.append({
                                 "time": arrival_time,
                                 "route_id": route_id,
                                 "trip_id": trip_id,
-                                "direction_id": direction_id,
+                                "headsign": headsign,
                                 "timestamp": timestamp
                             })
 
@@ -558,8 +543,8 @@ def fetch_bus_arrivals(debug=False):
                 print(f"Total entities: {total_entities}, Matched stops for {STOP_ID}: {matched_stop_count}, Arrivals found: {len(arrivals)}")
                 for arr in arrivals[:3]:  # Show first 3 arrivals
                     local_time = arr["time"].astimezone(LOCAL_TZ)
-                    direction_str = f", direction {arr['direction_id']}" if arr['direction_id'] is not None else ""
-                    print(f"  Route {arr['route_id']}: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']}{direction_str})")
+                    headsign_str = f", headsign: {arr['headsign']}" if arr['headsign'] else ""
+                    print(f"  Route {arr['route_id']}: {local_time} (UTC: {arr['time']}, timestamp: {arr['timestamp']}{headsign_str})")
 
             # Sort by arrival time
             arrivals.sort(key=lambda x: x["timestamp"])
@@ -568,13 +553,13 @@ def fetch_bus_arrivals(debug=False):
             now_timestamp = datetime.now(timezone.utc).timestamp()
             future_arrivals = [a for a in arrivals if a["timestamp"] > now_timestamp]
             
-            # Filter to only include arrivals for the desired routes and directions
+            # Filter to only include arrivals for the desired routes and headsigns
             filtered_arrivals = []
             for a in future_arrivals:
                 if a["route_id"] in DESIRED_ROUTES:
-                    # Check if direction filtering is required for this route
-                    desired_direction = ROUTE_DIRECTIONS.get(a["route_id"])
-                    if desired_direction is None or a["direction_id"] == desired_direction:
+                    # Check if headsign filtering is required for this route
+                    desired_headsign = ROUTE_HEADSIGNS.get(a["route_id"])
+                    if not desired_headsign or a["headsign"] == desired_headsign:
                         filtered_arrivals.append(a)
             
             if debug and len(arrivals) > 0:
@@ -582,7 +567,7 @@ def fetch_bus_arrivals(debug=False):
                 now_local = now.astimezone(LOCAL_TZ)
                 print(f"Current time - UTC: {now}, Local: {now_local}")
                 print(f"Future arrivals (all routes): {len(future_arrivals)}")
-                print(f"Future arrivals (desired routes with direction filtering): {len(filtered_arrivals)}")
+                print(f"Future arrivals (desired routes with headsign filtering): {len(filtered_arrivals)}")
             
             return filtered_arrivals
             
@@ -685,8 +670,8 @@ def main():
                         local_time = arrival["time"].astimezone(LOCAL_TZ)
                         time_str = local_time.strftime("%I:%M %p")
                         route_id = arrival["route_id"]
-                        direction_str = f" (dir {arrival['direction_id']})" if arrival['direction_id'] is not None else ""
-                        print(f"  Route {route_id}: {time_str}{direction_str}")
+                        headsign_str = f" ({arrival['headsign']})" if arrival['headsign'] else ""
+                        print(f"  Route {route_id}: {time_str}{headsign_str}")
             
             # Check if any arrivals have passed
             future_arrivals = [a for a in arrivals if a["time"] > datetime.now(timezone.utc)]
