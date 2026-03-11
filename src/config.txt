@@ -10,7 +10,7 @@ API_URL = https://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates/1
 STATIC_GTFS_URL = https://webapps.regionofwaterloo.ca/api/grt-routes/api/staticfeeds/1
 
 # Bus stop ID where you want to monitor arrivals
-STOP_ID = 2783
+STOP_ID = 2673
 
 # Timezone (IANA timezone name)
 LOCAL_TZ = America/Toronto
