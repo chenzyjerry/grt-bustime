@@ -261,14 +261,6 @@ def test_directions():
                     print(left.ljust(40) + right)
                 
                 print(f"\nTotal arrivals: {len(arrivals_h0)}".ljust(40) + f"Total arrivals: {len(arrivals_h1)}")
-                
-                # Store these for config suggestions
-                arrivals[route] = {
-                    'headsign0': h0,
-                    'count0': len(arrivals_h0),
-                    'headsign1': h1,
-                    'count1': len(arrivals_h1)
-                }
             elif len(headsign_list) == 1:
                 # Only one headsign available
                 headsign = headsign_list[0]
@@ -283,22 +275,9 @@ def test_directions():
                 
                 if len(headsign_arrivals) > 10:
                     print(f"  ... and {len(headsign_arrivals) - 10} more")
-                    
-                arrivals[route] = {
-                    'headsign0': headsign,
-                    'count0': len(headsign_arrivals),
-                    'headsign1': None,
-                    'count1': 0
-                }
             else:
                 # No headsign data available
                 print(f"\nNo headsign data available for this route.")
-                arrivals[route] = {
-                    'headsign0': 'Unknown',
-                    'count0': len(arrivals),
-                    'headsign1': None,
-                    'count1': 0
-                }
             
             # Show warning about missing headsign data
             if has_no_headsign and directions.get("Unknown"):
