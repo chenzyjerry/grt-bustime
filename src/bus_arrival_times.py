@@ -121,6 +121,17 @@ LOCATION_LONGITUDE = float(CONFIG.get("LOCATION_LONGITUDE", -80.4925))
 # Refresh interval in seconds
 REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
 
+# Routes set for filtering (created once to avoid recreation on every fetch)
+DESIRED_ROUTES = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
+
+# Observer for sun calculations (cached to avoid recreation)
+_OBSERVER = None
+if ASTRAL_AVAILABLE and ENABLE_SUNSET_DIMMING:
+    _OBSERVER = Observer(latitude=LOCATION_LATITUDE, longitude=LOCATION_LONGITUDE, elevation=0)
+
+# HTTP session for API calls (reused across fetches)
+_API_SESSION = None
+
 # Log loaded configuration on startup
 print("[INFO] Configuration loaded from config.txt:")
 print(f"[INFO]   Stop ID: {STOP_ID}")
@@ -135,8 +146,9 @@ else:
 def get_sunset_time(date=None):
     """Calculate sunset time for the location.
     Returns datetime object in LOCAL_TZ, or None if calculation fails.
+    Uses cached observer instance.
     """
-    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING:
+    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING or _OBSERVER is None:
         return None
     
     try:
@@ -145,8 +157,7 @@ def get_sunset_time(date=None):
         else:
             date = date.date() if isinstance(date, datetime) else date
         
-        observer = Observer(latitude=LOCATION_LATITUDE, longitude=LOCATION_LONGITUDE, elevation=0)
-        sun_times = sun(observer, date=date, tzinfo=LOCAL_TZ)
+        sun_times = sun(_OBSERVER, date=date, tzinfo=LOCAL_TZ)
         return sun_times['sunset']
     except Exception as e:
         print(f"[ERROR] Failed to calculate sunset time: {e}")
@@ -156,8 +167,9 @@ def get_sunset_time(date=None):
 def get_sunrise_time(date=None):
     """Calculate sunrise time for the location.
     Returns datetime object in LOCAL_TZ, or None if calculation fails.
+    Uses cached observer instance.
     """
-    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING:
+    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING or _OBSERVER is None:
         return None
     
     try:
@@ -166,8 +178,7 @@ def get_sunrise_time(date=None):
         else:
             date = date.date() if isinstance(date, datetime) else date
         
-        observer = Observer(latitude=LOCATION_LATITUDE, longitude=LOCATION_LONGITUDE, elevation=0)
-        sun_times = sun(observer, date=date, tzinfo=LOCAL_TZ)
+        sun_times = sun(_OBSERVER, date=date, tzinfo=LOCAL_TZ)
         return sun_times['sunrise']
     except Exception as e:
         print(f"[ERROR] Failed to calculate sunrise time: {e}")
@@ -183,6 +194,15 @@ class DH_KeyAdapter(HTTPAdapter):
         ctx.set_ciphers('DEFAULT@SECLEVEL=1')
         kwargs['ssl_context'] = ctx
         return super().init_poolmanager(*args, **kwargs)
+
+
+def get_api_session():
+    """Get or create the API session (reused across calls)."""
+    global _API_SESSION
+    if _API_SESSION is None:
+        _API_SESSION = requests.Session()
+        _API_SESSION.mount("https://", DH_KeyAdapter())
+    return _API_SESSION
 
 
 class CapacitiveSensorManager:
@@ -382,9 +402,8 @@ def fetch_bus_arrivals(debug=False):
     
     for attempt in range(max_retries):
         try:
-            # Create session with custom SSL adapter
-            session = requests.Session()
-            session.mount("https://", DH_KeyAdapter())
+            # Get reusable API session
+            session = get_api_session()
             
             # Add User-Agent header (required by many servers)
             headers = {
@@ -444,13 +463,12 @@ def fetch_bus_arrivals(debug=False):
             # Sort by arrival time
             arrivals.sort(key=lambda x: x["timestamp"])
             
-            # Filter future arrivals only - use UTC-aware comparison
-            now = datetime.now(timezone.utc)
-            future_arrivals = [a for a in arrivals if a["time"] > now]
+            # Filter future arrivals only - use timestamp comparison (faster)
+            now_timestamp = datetime.now(timezone.utc).timestamp()
+            future_arrivals = [a for a in arrivals if a["timestamp"] > now_timestamp]
             
             # Filter to only include arrivals for the desired routes
-            desired_routes = {DISPLAY1_ROUTE, DISPLAY2_ROUTE}
-            filtered_arrivals = [a for a in future_arrivals if a["route_id"] in desired_routes]
+            filtered_arrivals = [a for a in future_arrivals if a["route_id"] in DESIRED_ROUTES]
             
             if debug and len(arrivals) > 0:
                 now_local = now.astimezone(LOCAL_TZ)
@@ -551,14 +569,8 @@ def main():
                     print(f"[{now.strftime('%H:%M:%S')}] Updated arrivals for stop {STOP_ID}:")
                     
                     # Find and print arrivals for specific routes
-                    arrival_route12 = None
-                    arrival_route19 = None
-                    
-                    for arrival in arrivals:
-                        if arrival["route_id"] == DISPLAY1_ROUTE and arrival_route12 is None:
-                            arrival_route12 = arrival
-                        if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
-                            arrival_route19 = arrival
+                    arrival_route12 = next((a for a in arrivals if a["route_id"] == DISPLAY1_ROUTE), None)
+                    arrival_route19 = next((a for a in arrivals if a["route_id"] == DISPLAY2_ROUTE), None)
                     
                     # Print the next arrivals
                     for arrival in [a for a in [arrival_route12, arrival_route19] if a is not None]:
@@ -579,14 +591,8 @@ def main():
                 continue
             
             # Find arrivals for specific routes
-            arrival_route12 = None
-            arrival_route19 = None
-            
-            for arrival in future_arrivals:
-                if arrival["route_id"] == DISPLAY1_ROUTE and arrival_route12 is None:
-                    arrival_route12 = arrival
-                if arrival["route_id"] == DISPLAY2_ROUTE and arrival_route19 is None:
-                    arrival_route19 = arrival
+            arrival_route12 = next((a for a in future_arrivals if a["route_id"] == DISPLAY1_ROUTE), None)
+            arrival_route19 = next((a for a in future_arrivals if a["route_id"] == DISPLAY2_ROUTE), None)
             
             # Update TM1637 displays with arrival times for specific routes
             display_manager.show_arrivals(
