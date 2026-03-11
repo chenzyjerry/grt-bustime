@@ -153,6 +153,27 @@ def get_sunset_time(date=None):
         return None
 
 
+def get_sunrise_time(date=None):
+    """Calculate sunrise time for the location.
+    Returns datetime object in LOCAL_TZ, or None if calculation fails.
+    """
+    if not ASTRAL_AVAILABLE or not ENABLE_SUNSET_DIMMING:
+        return None
+    
+    try:
+        if date is None:
+            date = datetime.now(LOCAL_TZ).date()
+        else:
+            date = date.date() if isinstance(date, datetime) else date
+        
+        observer = Observer(latitude=LOCATION_LATITUDE, longitude=LOCATION_LONGITUDE, elevation=0)
+        sun_times = sun(observer, date=date, tzinfo=LOCAL_TZ)
+        return sun_times['sunrise']
+    except Exception as e:
+        print(f"[ERROR] Failed to calculate sunrise time: {e}")
+        return None
+
+
 class DH_KeyAdapter(HTTPAdapter):
     """Custom adapter to allow weak DH keys for older servers"""
     def init_poolmanager(self, *args, **kwargs):
@@ -276,17 +297,35 @@ class TM1637DisplayManager:
         
         try:
             now = datetime.now(LOCAL_TZ)
-            sunset = get_sunset_time(now)
             
-            if sunset is None:
-                print(f"[DEBUG] Sunset calculation returned None")
+            # Get sunrise and sunset for today
+            sunrise_today = get_sunrise_time(now)
+            sunset_today = get_sunset_time(now)
+            
+            if sunrise_today is None or sunset_today is None:
+                print(f"[DEBUG] Sunrise/sunset calculation returned None")
                 return False
             
-            # Determine target brightness based on whether it's after sunset
-            target_brightness = NIGHT_BRIGHTNESS if now >= sunset else DAY_BRIGHTNESS
+            # Determine if it's night or day
+            is_night = False
+            
+            if now >= sunset_today:
+                # After today's sunset - it's night
+                is_night = True
+                print(f"[DEBUG] After sunset: {sunset_today.strftime('%H:%M:%S')}")
+            elif now < sunrise_today:
+                # Before today's sunrise - still night from yesterday
+                is_night = True
+                print(f"[DEBUG] Before sunrise: {sunrise_today.strftime('%H:%M:%S')}, still night from yesterday")
+            else:
+                # Between sunrise and sunset - it's day
+                print(f"[DEBUG] Between sunrise ({sunrise_today.strftime('%H:%M:%S')}) and sunset ({sunset_today.strftime('%H:%M:%S')})")
+            
+            # Determine target brightness
+            target_brightness = NIGHT_BRIGHTNESS if is_night else DAY_BRIGHTNESS
             
             # Debug output
-            print(f"[DEBUG] Brightness check: now={now.strftime('%H:%M:%S')}, sunset={sunset.strftime('%H:%M:%S')}, is_after_sunset={now >= sunset}, target={target_brightness}, current={self.current_brightness}")
+            print(f"[DEBUG] Brightness check: now={now.strftime('%H:%M:%S')}, is_night={is_night}, target={target_brightness}, current={self.current_brightness}")
             
             # Update brightness if it changed
             if target_brightness != self.current_brightness:
