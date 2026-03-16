@@ -24,14 +24,31 @@ sudo apt install git -y
 
 Make a folder where you want the GRT-Bustime code to live and navigate to it:
 ```
-mkdir bustime
-cd bustime
+mkdir grt-bustime
+cd grt-bustime
+```
+
+Clone the repo:
+```
+git clone https://github.com/chenzyjerry/grt-bustime.git
 ```
 
 Run the setup script. This will install all the required libraries:
 ```
+cd src
 bash setup.sh
 ```
+
+### Edit the configuration file
+
+There is a configuration text file which will allow you to set things like display brightness, stop number, route numbers, etc. More information on these settings can be found in ```Configuration.md```. Navigate to the file using 
+```
+nano config.txt
+```
+
+Edit the configuration, and then save your changes with ```Ctrl-O, Enter, Ctrl-X```.
+
+### Run the code
 
 Activate your virtual environment and run the script!
 ```
@@ -39,11 +56,6 @@ source venv/bin/activate
 python bus_arrival_times.py
 ```
 
-You should now be able to see a live status in your terminal on the next busses arriving at your stop. It will pull updated data every 3 minutes, and count down the arrival time in the meanwhile. Press ```Ctrl-C``` when you want to quit the program.
+You should now be able to see a live status in your terminal on the next busses arriving at your stop. It will pull updated data every 3 minutes. Press ```Ctrl-C``` when you want to quit the program.
 
-#### Debug
-
-```bus_arrival_times.py``` has a debug mode to troubleshoot issues with data retrieval. This can be accessed by using the ```--debug``` flag:
-```
-python bus_arrival_times.py --debug
-```
+To keep the program running in the background even after you disconnect from SSH, you can use [tmux](https://github.com/tmux/tmux), which allows you to run a detached terminal in the background. Install tmux:
