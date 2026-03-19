@@ -10,7 +10,7 @@ So, you want to make your own GRT bus time display. If you do, bonus cool points
 
 2. Solder 40 pin female header onto perfboard.
 
-3. Solder two 4-pin right-angle JST-XH and one 3-pin right-angle JST-XH header onto the perboard. Solder the corresponding 4 pin cables to the display modules, and the 3 pin cable to the touch sensor.
+3. Solder two 4-pin right-angle JST-XH and one 3-pin right-angle JST-XH header onto the perboard. Solder the corresponding 4 pin cables to the display modules, and the 3 pin cable to the touch sensor. I would also recommend adding hot glue to the solder joints for strain relief.
 
 4. Connect the Pi headers to the JST-XH headers on the perfboard as per the following diagram: ![Wiring Diagram](./img/GRT_Bustime%20Wiring%20Diagram.png)
 
@@ -19,6 +19,8 @@ So, you want to make your own GRT bus time display. If you do, bonus cool points
 6. You should now be done the electrical components. You can choose to test all the components prior to assembly in the case. For that, skip to the Software Setup section.
 
 ## Make the Case
+
+All required files can be found in the ```print_files``` folder.
 
 1. 3D print the Bottom Case, Top Case, PCB Support Bracket, and Pi Frame. If you'd like to make it desk mounted, also print out 2 of the Legs.
 
