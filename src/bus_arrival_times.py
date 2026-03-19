@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fetch the next two bus arrival times for GRT stop 2783.
+Fetch the next two bus arrival times for a GRT stop.
 Uses the GTFS Realtime API provided by Region of Waterloo.
 Direction information is obtained from the static GTFS data.
 """
@@ -128,6 +128,9 @@ LOCATION_LONGITUDE = float(CONFIG.get("LOCATION_LONGITUDE", -80.4925))
 # Refresh interval in seconds
 REFRESH_INTERVAL = int(CONFIG.get("REFRESH_INTERVAL", 180))
 
+# Static GTFS refresh interval in seconds (default 12 hours)
+STATIC_GTFS_REFRESH_INTERVAL = int(CONFIG.get("STATIC_GTFS_REFRESH_INTERVAL", 43200))
+
 # Store headsigns for filtering (empty string means accept all headsigns)
 _display1_headsign = DISPLAY1_HEADSIGN.strip() if DISPLAY1_HEADSIGN else ""
 _display2_headsign = DISPLAY2_HEADSIGN.strip() if DISPLAY2_HEADSIGN else ""
@@ -251,17 +254,22 @@ def load_static_gtfs_data():
 
 # Global cache for trip-to-headsign mapping
 _TRIP_TO_HEADSIGN = None
+_TRIP_TO_HEADSIGN_TIMESTAMP = None
 
 def get_trip_headsign(trip_id):
     """
     Get the headsign for a given trip_id using cached static GTFS data.
     Returns the headsign (as string) or empty string if not found.
-    Loads the data on first call.
+    Loads the data on first call and refreshes if cache has expired.
     """
-    global _TRIP_TO_HEADSIGN
+    global _TRIP_TO_HEADSIGN, _TRIP_TO_HEADSIGN_TIMESTAMP
     
-    if _TRIP_TO_HEADSIGN is None:
+    current_time = time.time()
+    
+    # Load or refresh if cache is empty or has expired
+    if _TRIP_TO_HEADSIGN is None or (current_time - _TRIP_TO_HEADSIGN_TIMESTAMP) > STATIC_GTFS_REFRESH_INTERVAL:
         _TRIP_TO_HEADSIGN = load_static_gtfs_data()
+        _TRIP_TO_HEADSIGN_TIMESTAMP = current_time
     
     return _TRIP_TO_HEADSIGN.get(trip_id, "")
 

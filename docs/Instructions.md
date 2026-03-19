@@ -26,7 +26,7 @@ All required files can be found in the ```print_files``` folder.
 
 2. Laser cut the acrylic sheet as per ```Acrylic Faceplate.DWG```.
 
-3. Print out ```GRT Bus Time Face Decal.pdf```. Ensure that it prints to the proper scale. Cut out the black boxes for the displays, and use the acrylic faceplate as a guide to cut out the corners and punch the screw holes.
+3. Print out ```GRT Bus Time Face Decal.pdf```. Ensure that it prints to the proper scale. Cut out the black boxes for the displays, and use the acrylic faceplate as a guide to cut out the corners and punch the screw holes. Place a small square of transparent tape over the refresh button location.
 
 4. Add the two 6mm M2.5 heat inserts to the PCB support bracket.
 

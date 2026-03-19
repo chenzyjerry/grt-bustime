@@ -69,3 +69,9 @@ LOCATION_LONGITUDE = -80.4925
 # ==================== Refresh Interval ====================
 # How often to refresh bus arrival times (in seconds)
 REFRESH_INTERVAL = 180
+
+# How often to refresh static GTFS data for trip-to-headsign mapping (in seconds)
+# Default: 43200 (12 hours)
+# This controls how frequently the program downloads updated schedule/destination info
+# Set to 86400 for daily refresh, or lower for more frequent updates
+STATIC_GTFS_REFRESH_INTERVAL = 43200

@@ -23,7 +23,6 @@ If you want to make your own GRT Bus Arrival Time display, you will need the fol
 | Name | Qty | Note |
 | ---- | --- | ---- |
 | TM1637 4-digit 7-segment display module (white) | 2 | The TM1637 is a convenient little I2C 7-segment display module that will eliminate the headache of having to manually control the 7-segment displays. White will allow the emitted light color to be altered using gel filters. |
-| Orange gel filter sheet | 2 | This will make the display numbers orange just like the dot matrix displays in GRT bus shelters. |
 | TTP223 Capacitive Touch Module | 1 | Capacitive touch module that allows the user to immediately refresh the arrival time data. Capacitive touch sensing allows the moduel to be hidden behind the front panel graphics. |
 
 ## Case

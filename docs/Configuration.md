@@ -141,6 +141,19 @@ src/config.txt
 - Minimum recommended: `60` (1 minute)
 - Set higher to reduce network usage, lower for more frequent updates
 
+**STATIC_GTFS_REFRESH_INTERVAL**
+- How often to refresh the static GTFS data (trip-to-headsign mapping)
+- Specified in seconds
+- Default: `43200` (12 hours)
+- This data is used to look up destination names (headsigns) for each bus trip
+- Common values:
+  - `43200` - 12 hours (recommended)
+  - `86400` - 24 hours (daily)
+  - `21600` - 6 hours (more frequent)
+- Lower values: More frequent updates to schedule/destination information, but higher bandwidth
+- Higher values: Less frequent updates, lower bandwidth usage
+- Start with the default and adjust based on how often route schedules change
+
 ## Finding Your Headsigns
 
 The headsign (also called trip_headsign or destination) is the destination name for a bus trip. To discover which headsigns are available for your routes:
