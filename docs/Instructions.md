@@ -32,13 +32,13 @@ So, you want to make your own GRT bus time display. If you do, bonus cool points
 
 6. Add four M3 heat inserts to each corner of the display brackets on the inside face of the Top Case.
 
-[!NOTE]
-If you want to make it desk mounted, slot the M3 nuts into the hexagonal holes on the Bottom Case. Fasten the legs to the case using the four M3xX screws from the back of the case.
+> [!NOTE]
+> If you want to make it desk mounted, slot the M3 nuts into the hexagonal holes on the Bottom Case. Fasten the legs to the case using the four M3xX screws from the back of the case.
 
 7. Plug the MicroUSB power supply into the Pi.
 
-[!WARNING]
-The power supply must be plugged in prior to assembly, as it is not possible to do so once the case is closed.
+> [!WARNING]
+> The power supply must be plugged in prior to assembly, as it is not possible to do so once the case is closed.
 
 7. Secure the Pi to the Bottom Case using the four M2.5xX screws, with the Pi Frame underneath as a spacer.
 
