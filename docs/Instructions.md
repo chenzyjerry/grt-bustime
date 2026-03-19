@@ -58,4 +58,35 @@ python bus_arrival_times.py
 
 You should now be able to see a live status in your terminal on the next busses arriving at your stop. It will pull updated data every 3 minutes. Press ```Ctrl-C``` when you want to quit the program.
 
-To keep the program running in the background even after you disconnect from SSH, you can use [tmux](https://github.com/tmux/tmux), which allows you to run a detached terminal in the background. Install tmux:
+### Run on Startup with Crontab
+
+To automatically run the script when your Raspberry Pi starts, you can use crontab:
+
+**1. Make the startup script executable:**
+```
+chmod +x ~/grt-bustime/src/run_bustime.sh
+```
+
+**2. Open the crontab editor:**
+```
+crontab -e
+```
+
+**3. Add this line to the end of the file:**
+```
+@reboot /home/YOUR_USERNAME/grt-bustime/src/run_bustime.sh
+```
+
+Replace `YOUR_USERNAME` with your actual Raspberry Pi username.
+
+**4. Save and exit** (press `Ctrl-O`, then `Enter`, then `Ctrl-X`)
+
+**5. Verify the entry was added:**
+```
+crontab -l
+```
+
+The script will now automatically start when your Pi boots up. Output is logged to `~/grt-bustime/src/bustime.log`, which you can check to troubleshoot any issues:
+```
+cat ~/grt-bustime/src/bustime.log
+```

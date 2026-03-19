@@ -4,9 +4,11 @@ Fetch the next two Grand River Transit (GRT) bus arrival times at a stop using a
 
 This project is not affiliated in any way with Grand River Transit. I just like transit.
 
-Interested in doing this yourself? Read the instructions and find a parts list in ```./docs/Instructions.md```.
+Interested in doing this yourself? Read the instructions in ```./docs/Instructions.md```.
 
 ## Photos
+
+![Completed Sign](./docs/img/SignImage.jpg)
 
 ## Why?
 
