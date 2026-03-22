@@ -28,29 +28,35 @@ All required files can be found in the ```print_files``` folder.
 
 3. Print out ```GRT Bus Time Face Decal.pdf```. Ensure that it prints to the proper scale. Cut out the black boxes for the displays, and use the acrylic faceplate as a guide to cut out the corners and punch the screw holes. Place a small square of transparent tape over the refresh button location.
 
-4. Add the two 6mm M2.5 heat inserts to the PCB support bracket.
+4. Add the two 6mm M2.5 heat inserts to the PCB support bracket: ![PCB Support bracket](./img/SupportBracket.png)
 
-5. Add the four M3 heat inserts to the corners of the Bottom Case. Add the 4mm M2.5 heat inserts to XYZ, and the 6mm M2.5 heat inserts to ABC.
+5. Add the four M3 heat inserts to the corners of the Bottom Case. Add the six 4mm M2.5 heat inserts as shown below: ![Bottom Case Heat Inserts](./img/BottomCaseHeatInserts.png)
 
-6. Add four M3 heat inserts to each corner of the display brackets on the inside face of the Top Case.
+6. Add four M3 heat inserts to each corner of the display brackets on the inside face of the Top Case: ![Display Heat Inserts](./img/DisplayHeatInserts.jpg)
 
 > [!NOTE]
-> If you want to make it desk mounted, slot the M3 nuts into the hexagonal holes on the Bottom Case. Fasten the legs to the case using the four M3xX screws from the back of the case.
+> If you want to make it desk mounted, slot the M3 nuts into the hexagonal holes on the Bottom Case. Fasten the legs to the case using the four M3x12 screws from the back of the case.
 
 7. Plug the MicroUSB power supply into the Pi.
 
 > [!WARNING]
 > The power supply must be plugged in prior to assembly, as it is not possible to do so once the case is closed.
 
-7. Secure the Pi to the Bottom Case using the four M2.5xX screws, with the Pi Frame underneath as a spacer.
+7. Secure the Pi to the Bottom Case using the four M2.5x6 screws, with the Pi Frame underneath as a spacer: ![Pi and Power Supply Installed](./img/PiInstalled.png)
 
-8. Secure the perfboard to the PCB Support Bracket using the two M2.5xX screws. Plug the perfboard into the Pi. Secure the PCB Support Brackets to the Bottom Case using the two MXxX screws.
+8. Secure the PCB Support Bracket to the Bottom Case using the two M2.5x6 screws.
 
-9. Secure the touch sensor to the slot in the top case with electrical tape.
+9. Plug the perfboard into the Pi. Secure the perfboard to the PCB Support Bracket using the two M2.5x6 screws: ![Pi and Perfboard](./img/PiAndPerfboard.png)
 
-10. Plug in the display modules and touch sensor prior to closing the case. It should now look like the following: ![Components Installed](./img/ComponentsInstalled.png)
+10. Secure the touch sensor to the slot in the Top Case with electrical tape.
 
-11. Place the Top Case on the Bottom Case. Place the Face Decal on top, and then the acrylic faceplate on top of that. Secure the entire assembly using the four M3xX screws and washers.
+11. Secure the display modules to the Top Case using four M3x6 screws per display module: ![Top Case Components Installed](./img/TopCaseComponentsInstalled.png)
+
+12. Plug in the display modules and touch sensor prior to closing the case. The bottom display module should be plugged into the leftmost 4-pin JST connector. It should now look like the following: ![Components Installed](./img/ComponentsInstalled.png)
+
+13. Place the Top Case on the Bottom Case. Place the Face Decal on top, and then the acrylic faceplate on top of that. Secure the entire assembly using the four M3x16 screws and washers.
+
+14. If you are wall mounting the bus time display, place a 3M Command Strip on the back of the case.
 
 ## Software Setup
 
