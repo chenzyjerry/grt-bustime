@@ -24,7 +24,7 @@ All required files can be found in the ```print_files``` folder.
 
 1. 3D print the Bottom Case, Top Case, PCB Support Bracket, and Pi Frame. If you'd like to make it desk mounted, also print out 2 of the Legs.
 
-2. Laser cut the acrylic sheet as per ```Acrylic Faceplate.DWG```.
+2. Laser cut the acrylic sheet as per ```Acrylic Faceplate.DWG```. Units are in mm.
 
 3. Print out ```GRT Bus Time Face Decal.pdf```. Ensure that it prints to the proper scale. Cut out the black boxes for the displays, and use the acrylic faceplate as a guide to cut out the corners and punch the screw holes. Place a small square of transparent tape over the refresh button location.
 
