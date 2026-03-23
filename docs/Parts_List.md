@@ -44,7 +44,16 @@ If you want to make your own GRT Bus Arrival Time display, you will need the fol
 | M3 nut | 4 | N/A | Optional, for desk mounting. |
 | 3M 5lb 3M Command Strip | 1 | N/A | For wall mounting. |
 | 6x7in 1/16" acrylic sheet | 1 | N/A |  |
+| Electrical tape | 1 | N/A |  |
 
 
 ## Tools
-
+| Name | Note |
+| ---- | ---- |
+| Philips #2 screwdriver |  |
+| Philips #00 screwdriver |  |
+| Soldering iron |  |
+| Soldering iron heat insert tips |  |
+| Hot glue gun |  |
+| Scissors |  |
+| Utility knife | A brand new blade is ideal for easily cutting out the slots in the Face Decal |
