@@ -56,4 +56,4 @@ If you want to make your own GRT Bus Arrival Time display, you will need the fol
 | Soldering iron heat insert tips |  |
 | Hot glue gun |  |
 | Scissors |  |
-| Utility knife | A brand new blade is ideal for easily cutting out the slots in the Face Decal |
+| Utility knife | A brand new blade is ideal for easily cutting out the slots in the Face Decal. |

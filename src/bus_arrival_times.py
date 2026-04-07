@@ -151,6 +151,7 @@ if ASTRAL_AVAILABLE and ENABLE_SUNSET_DIMMING:
 
 # HTTP session for API calls (reused across fetches)
 _API_SESSION = None
+_API_SESSION_FAILURE_COUNT = 0  # Track consecutive failures to reset session
 
 # Log loaded configuration on startup
 print("[INFO] Configuration loaded from config.txt:")
@@ -286,8 +287,21 @@ class DH_KeyAdapter(HTTPAdapter):
 
 
 def get_api_session():
-    """Get or create the API session (reused across calls)."""
-    global _API_SESSION
+    """Get or create the API session (reused across calls).
+    Session is automatically reset if multiple consecutive failures occur."""
+    global _API_SESSION, _API_SESSION_FAILURE_COUNT
+    
+    # Reset session after 3 consecutive failures to try fresh connection
+    if _API_SESSION_FAILURE_COUNT >= 3:
+        print(f"[WARNING] Session had {_API_SESSION_FAILURE_COUNT} consecutive failures. Resetting connection...")
+        if _API_SESSION is not None:
+            try:
+                _API_SESSION.close()
+            except:
+                pass
+        _API_SESSION = None
+        _API_SESSION_FAILURE_COUNT = 0
+    
     if _API_SESSION is None:
         _API_SESSION = requests.Session()
         _API_SESSION.mount("https://", DH_KeyAdapter())
@@ -486,6 +500,8 @@ def fetch_bus_arrivals(debug=False):
     Fetch and parse bus arrival times for the specified stop.
     Returns a list of tuples (arrival_time, route_id, trip_id).
     """
+    global _API_SESSION_FAILURE_COUNT
+    
     max_retries = 3
     retry_delay = 1  # Start with 1 second delay
     
@@ -577,9 +593,12 @@ def fetch_bus_arrivals(debug=False):
                 print(f"Future arrivals (all routes): {len(future_arrivals)}")
                 print(f"Future arrivals (desired routes with headsign filtering): {len(filtered_arrivals)}")
             
+            # Success! Reset failure counter
+            _API_SESSION_FAILURE_COUNT = 0
             return filtered_arrivals
             
         except requests.exceptions.ConnectionError as e:
+            _API_SESSION_FAILURE_COUNT += 1
             if attempt < max_retries - 1:
                 print(f"Connection error (attempt {attempt + 1}/{max_retries}): {e}")
                 print(f"Retrying in {retry_delay} seconds...")
@@ -590,9 +609,11 @@ def fetch_bus_arrivals(debug=False):
                 print(f"Failed to connect after {max_retries} attempts: {e}")
                 return []
         except requests.RequestException as e:
+            _API_SESSION_FAILURE_COUNT += 1
             print(f"Error fetching data from API: {e}")
             return []
         except Exception as e:
+            _API_SESSION_FAILURE_COUNT += 1
             print(f"Error parsing feed: {e}")
             import traceback
             traceback.print_exc()
